@@ -1,0 +1,332 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: engines.waf.k8s.coraza.io
+spec:
+  group: waf.k8s.coraza.io
+  names:
+    kind: Engine
+    listKind: EngineList
+    plural: engines
+    singular: engine
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.ruleSet.name
+      name: RuleSet
+      type: string
+    - jsonPath: .spec.target.provider
+      name: Provider
+      type: string
+    - jsonPath: .spec.target.type
+      name: Target Type
+      type: string
+    - jsonPath: .spec.target.name
+      name: Target Name
+      type: string
+    - jsonPath: .spec.failurePolicy
+      name: Failure Policy
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Engine represents an instance of a Web Application Firewall (WAF)
+          engine.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of Engine.
+            properties:
+              driver:
+                description: |-
+                  driver configures the mechanism used to deploy the WAF filter into the
+                  target workload. When omitted, the operator uses a default driver for the
+                  underlying Engine (eg.: WASM for Istio)
+                minProperties: 0
+                properties:
+                  type:
+                    description: type selects the driver mechanism used to deploy
+                      the WAF filter.
+                    enum:
+                    - wasm
+                    type: string
+                  wasm:
+                    description: wasm contains configuration specific to the WASM
+                      driver.
+                    minProperties: 0
+                    properties:
+                      image:
+                        description: |-
+                          image is the OCI image reference for the Coraza WASM plugin.
+                          If omitted the operator uses its configured default WASM OCI reference
+                          (--default-wasm-image / CORAZA_DEFAULT_WASM_IMAGE).
+                        maxLength: 1024
+                        minLength: 1
+                        type: string
+                      imagePullSecret:
+                        description: |-
+                          imagePullSecret is the name of a Kubernetes Secret in the same namespace
+                          as the Engine that contains Docker registry credentials for pulling the
+                          WASM OCI image.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: image must start with oci:// when set
+                      rule: '!has(self.image) || self.image.matches(''^oci://'')'
+                    - message: image must be at most 1024 characters when set
+                      rule: '!has(self.image) || size(self.image) <= 1024'
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: wasm config is required when type is wasm
+                  rule: 'self.type == ''wasm'' ? has(self.wasm) : true'
+              failurePolicy:
+                default: fail
+                description: |-
+                  failurePolicy determines the behavior when the WAF is not ready or
+                  encounters errors. Valid values are:
+
+                  - "Fail": Block traffic when the WAF is not ready or encounters errors
+                  - "Allow": Allow traffic through when the WAF is not ready or encounters errors
+
+                  When omitted, this means the user has no opinion and the platform
+                  will choose a reasonable default, which is subject to change over time.
+
+                  The current default is fail.
+                enum:
+                - fail
+                - allow
+                type: string
+              ruleSet:
+                description: |-
+                  ruleSet specifies the RuleSet resource that will be used to load rules
+                  into the Engine. The referenced RuleSet must be in the same namespace
+                  as the Engine.
+                properties:
+                  name:
+                    description: name is the name of the RuleSet in the same namespace
+                      as the Engine.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              ruleSetCacheServer:
+                description: |-
+                  ruleSetCacheServer contains configuration for the ruleset cache server.
+
+                  When omitted, no cache server will be used and no rulesets will be
+                  dynamically loaded. This implies that your Engine will be deployed with
+                  all rules statically embedded.
+                minProperties: 0
+                properties:
+                  pollIntervalSeconds:
+                    default: 15
+                    description: |-
+                      pollIntervalSeconds specifies how often the WAF should check for
+                      configuration updates. The value is specified in seconds.
+
+                      When omitted, this means the user has no opinion and the platform
+                      will choose a reasonable default, which is subject to change over time.
+                      The current default is 15 seconds.
+                    format: int32
+                    maximum: 3600
+                    minimum: 1
+                    type: integer
+                type: object
+              target:
+                description: |-
+                  target identifies the workload that the Engine protects. The operator
+                  derives the workload selector from this reference (e.g., for Gateway
+                  targets, the GEP-1762 gateway-name label is used).
+                properties:
+                  name:
+                    description: |-
+                      name is the name of the target resource in the same namespace as the
+                      Engine. For Gateway targets, the operator derives the workload selector
+                      from this name using the GEP-1762 convention
+                      (gateway.networking.k8s.io/gateway-name label).
+
+                      Must conform to RFC 1035 label syntax: lowercase alphanumeric or
+                      hyphens, must start with a letter and end with an alphanumeric
+                      (e.g. "my-gateway", "gw1"). This matches Kubernetes Service naming
+                      rules and ensures compatibility with Gateway implementations that
+                      derive Service names from the Gateway name.
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: name must be a valid DNS-1035 label (lowercase, starts
+                        with a letter)
+                      rule: '!format.dns1035Label().validate(self).hasValue()'
+                  provider:
+                    default: Istio
+                    description: |-
+                      provider identifies the infrastructure provider that manages the
+                      target workload. The provider determines which driver types are
+                      valid for the Engine.
+
+                      This field is immutable after creation. Changing providers requires
+                      creating a new Engine resource so the controller does not need to
+                      clean up and recreate child resources from the previous driver.
+
+                      Currently supported providers and their allowed driver types:
+                      - "Istio": supports "wasm" driver type.
+
+                      Future providers may support different driver types. For example,
+                      "EnvoyGateway" will only support "dynamicModule" once implemented.
+
+                      When omitted, this means the user has no opinion and the platform
+                      will choose a reasonable default, which is subject to change over time.
+
+                      The current default is Istio.
+                    enum:
+                    - Istio
+                    type: string
+                    x-kubernetes-validations:
+                    - message: field is immutable
+                      rule: self == oldSelf
+                  type:
+                    description: |-
+                      type is the type of resource being targeted.
+
+                      Currently only supports "Gateway" mode, utilizing Gateway API resources.
+                    enum:
+                    - Gateway
+                    type: string
+                required:
+                - name
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: field provider is immutable once set
+                  rule: '!has(oldSelf.provider) || has(self.provider)'
+                - message: name is required when type is Gateway
+                  rule: 'self.type == ''Gateway'' ? has(self.name) : true'
+                - message: provider "Istio" is only supported when target type is
+                    Gateway
+                  rule: 'self.provider == ''Istio'' ? self.type == ''Gateway'' : true'
+            required:
+            - ruleSet
+            - target
+            type: object
+            x-kubernetes-validations:
+            - message: driver type must be compatible with the target provider (Istio
+                supports wasm)
+              rule: '!has(self.driver) || !has(self.driver.type) || (self.target.provider
+                == ''Istio'' && self.driver.type == ''wasm'')'
+          status:
+            description: status defines the observed state of Engine.
+            minProperties: 0
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the current state of the Engine resource.
+                  Each condition has a unique type and reflects the status of a specific
+                  aspect of the resource.
+
+                  Standard condition types include:
+                  - "Accepted": the target is valid and not contested by another Engine.
+                     Reasons: "Accepted", "TargetNotFound", "TargetConflict"
+                  - "Ready": the engine has been successfully deployed and is operational
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
