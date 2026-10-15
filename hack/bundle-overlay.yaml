@@ -1,0 +1,44 @@
+---
+# Downstream additions to the generated ClusterServiceVersion.
+#
+# Merged over the upstream output by hack/generate-bundle.sh. Everything here
+# is a Red Hat productization concern that does not belong upstream. Keep it
+# declarative: if something cannot be expressed as a merge, prefer an explicit
+# yq expression in the script over adding logic to this file.
+#
+# ${OPERATOR_IMAGE} and ${WASM_IMAGE} are substituted by the script and are
+# required to be digest-pinned.
+
+metadata:
+  annotations:
+    # Shown in OperatorHub / the OpenShift console.
+    support: Red Hat
+    # TODO: confirm with product before GA.
+    operators.openshift.io/valid-subscription: '["Red Hat Web Application Firewall"]'
+    # Infrastructure feature declarations. Each must be accurate: they are
+    # surfaced to customers as filters in OperatorHub.
+    # TODO: verify each of these against the operator's actual behaviour.
+    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/fips-compliant: "false"
+    features.operators.openshift.io/proxy-aware: "false"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
+    features.operators.openshift.io/cnf: "false"
+    features.operators.openshift.io/cni: "false"
+    features.operators.openshift.io/csi: "false"
+
+spec:
+  # Not emitted by the upstream generator. Required for disconnected installs
+  # and checked at release time. Every image the operator needs at runtime must be
+  # listed here, digest-pinned.
+  #
+  # Keep entries at least one line apart: automation rewrites these pullspecs,
+  # and adjacent references produce merge conflicts on the update PRs.
+  relatedImages:
+    - name: waf-operator
+      image: ${OPERATOR_IMAGE}
+
+    - name: waf-proxy-wasm
+      image: ${WASM_IMAGE}

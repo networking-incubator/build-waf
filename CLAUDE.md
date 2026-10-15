@@ -1,0 +1,117 @@
+# CLAUDE.md
+
+Guidance for Claude Code (claude.ai/code) when working in this repository.
+
+## What this repository is
+
+A downstream build repository. It contains no application source: it tracks
+the upstream projects as git submodules and holds the Containerfiles, OLM
+bundle, file-based catalog and pipeline definitions that turn them into
+product images.
+
+Read [README.md](README.md) first for structure and build commands.
+
+## This repository is public
+
+Do not reference internal infrastructure, internal repositories, internal
+hostnames, team processes or internal document names in any file here -
+including comments, scripts and generated output. Describe mechanisms
+generically instead: "the build system", "the release policy checks",
+"digest-rewriting automation", "the release configuration".
+
+Be aware that comments written in `hack/bundle-overlay.yaml` end up inside
+the generated CSV, so the rule applies there too.
+
+## Hard rules
+
+**Never modify the submodules.** `coraza-kubernetes-operator/` and
+`coraza-proxy-wasm/` are upstream. Every downstream change belongs in this
+repository. If something seems to need an upstream edit, say so rather than
+making it.
+
+**Never fork upstream build logic - invoke it.** `images/proxy-wasm` calls
+the upstream magefile, and `hack/generate-bundle.sh` calls the upstream
+bundle generator, in both cases deliberately. Copying that logic here looks
+simpler and then drifts silently, and the resulting failures appear at
+runtime rather than at build time.
+
+**The Makefile is a launcher, not a build definition.** It may only invoke
+the same Containerfiles CI builds, with the same context and no extra build
+arguments. Anything a build genuinely needs belongs in the Containerfile or
+the pipeline, never only in the Makefile.
+
+**Build targets must not touch submodule state.** Submodule checkout is the
+developer's to control via `make submodules`. An implicit update changes
+which upstream commit is being built, or resets work in progress.
+
+**Do not bump the wasm toolchain versions.** Go and TinyGo are pinned
+together in `tools/tinygo-builder/Containerfile`, which documents exactly
+why each substitution fails. A version change must be validated with the
+upstream e2e and ftw suites, not by a successful compile.
+
+**The bundle under `images/bundle/` is generated and committed.** Regenerate
+it with `make bundle.generate`; never hand-edit the CSV, and never add a
+gitignore pattern that would exclude `manifests/`, `metadata/` or `tests/`.
+
+## Container image labels
+
+This has caused real bugs, so follow it precisely.
+
+Base images set `cpe`, `url`, `description`, `io.k8s.description` and
+`version` themselves. **Omitting a label does not produce an empty label - it
+ships the base image's value.** An inherited `cpe` wrongly claims the image
+is the base OS, and it satisfies a presence check while being false, so the
+failure surfaces late or not at all.
+
+- Override every one of those labels explicitly.
+- For values that are not yet known, set them to **empty**, never to a
+  placeholder like `TODO`. Empty cannot be mistaken for real, and a policy
+  check fails loudly on it.
+- `description` and `io.k8s.description` must carry the **same** text, with
+  `summary` holding the short form.
+- Those two are duplicated as literals on purpose, not shared via an `ARG`,
+  so no `--build-arg` can substitute product copy. Keep them in sync by hand.
+
+## Verifying your work
+
+Do not report a change as working without building it.
+
+```bash
+make images                      # all four, from the repository root
+make bundle.generate VERSION=... CHANNEL=... OPERATOR_IMAGE=... WASM_IMAGE=...
+```
+
+Check labels on a built image rather than assuming the Containerfile is
+authoritative, because inheritance is invisible in the source:
+
+```bash
+podman inspect <image> --format '{{range $k,$v := .Labels}}{{$k}}={{$v}}
+{{end}}'
+```
+
+**Do not use `strings` to check the wasm module.** The plugin build rewrites
+specific wasm imports after compiling, and the original symbol names survive
+elsewhere in the binary, so `strings` gives a false negative. Parse the
+import section, or compare against an unpatched build.
+
+## Conventions
+
+- ASCII only in code, comments and file content, unless there is a specific
+  reason otherwise.
+- Directories are named after the artifact produced, not the upstream
+  repository built from. `images/` holds shipped artifacts; `tools/` holds
+  build-time-only images. That split decides what carries product labels.
+- Builds always use the repository root as context, because the
+  Containerfiles copy from the submodules.
+- Base images are digest-pinned. The one exception, when that work lands, is
+  the catalog parent image: it selects the target platform version and must
+  be referenced by tag.
+- Pullspecs in the bundle must be digest-pinned. `hack/generate-bundle.sh`
+  enforces this.
+
+## When something is undecided
+
+Several values are deliberately unresolved and marked `TODO` in place -
+product identifiers, URLs, version wiring. Leave them empty and marked. Do
+not invent plausible values to make a build look complete; an empty value
+fails loudly, a plausible wrong one ships.

@@ -1,0 +1,89 @@
+# Coraza proxy-wasm plugin (operand).
+#
+# Source: coraza-proxy-wasm submodule at the repository root.
+# Build context must be the repository root, not this directory.
+#
+# This is the image the operator points Istio at: the Engine controller
+# applies a WasmPlugin referencing it, and Envoy pulls it and runs the module
+# in-process. Istio expects the module at /plugin.wasm.
+
+# The toolchain cannot be a stock Red Hat image - see tools/tinygo-builder
+# for why. In CI this is replaced by a digest-pinned reference to the
+# tinygo-builder image, kept current automatically. The local tag below is
+# only a convenience default for developer builds.
+ARG BUILDER_IMAGE=localhost/waf-tinygo-builder:0.34.0
+
+FROM ${BUILDER_IMAGE} AS builder
+
+WORKDIR /src
+
+# Resolve dependencies first so the layer caches independently of source edits.
+#
+# NOTE: coraza-proxy-wasm is a Go *workspace* - go.work covers both "." and
+# "./magefiles", and the build below needs modules from both. Dependency
+# prefetching must walk go.work rather than only the root go.mod, or a
+# network-isolated build will fail resolving mage and wazero.
+COPY coraza-proxy-wasm/go.mod coraza-proxy-wasm/go.sum ./
+COPY coraza-proxy-wasm/go.work coraza-proxy-wasm/go.work.sum ./
+COPY coraza-proxy-wasm/magefiles/ magefiles/
+RUN go mod download
+
+COPY coraza-proxy-wasm/ .
+
+# Default-on, matching upstream. Set to "false" to build without multiphase
+# evaluation; the magefile drops the coraza.rule.multiphase_evaluation tag.
+ARG MULTIPHASE_EVAL=true
+ENV MULTIPHASE_EVAL=${MULTIPHASE_EVAL}
+
+# Build via the upstream magefile rather than reimplementing it here.
+#
+# "mage build" does two things that must stay in lockstep with upstream: the
+# TinyGo invocation with its exact build tags and initial heap size, and then
+# patchWasm(), which rewrites specific wasip1 imports ("fd_filestat_get",
+# "path_filestat_get") in the emitted module. Hand-copying that logic into
+# this Containerfile would silently drift from upstream, and the failure mode
+# is a plugin that builds cleanly and misbehaves inside Envoy. The magefile
+# also asserts its minimum Go and TinyGo versions, which gives us a second
+# guard on the toolchain image.
+RUN go run mage.go build
+
+# ---------------------------------------------------------------------------
+
+# scratch, matching upstream. Besides being correct for a single-artifact wasm
+# image, it inherits no labels - so unlike the operator image there is no risk
+# of shipping UBI's cpe, url or description by accident.
+FROM scratch
+
+# TODO: set to the product's CPE identifier once assigned. Must match the
+# value recorded in the release configuration exactly. Left empty rather than
+# given a placeholder so the policy check fails loudly instead of passing a
+# value that is present but wrong.
+ARG WAF_CPE=""
+# TODO(blocked on product): the customer-facing product URL.
+ARG WAF_URL=""
+# TODO: wire from the build pipeline; currently resolves to "unknown".
+ARG CORAZA_PROXY_WASM_VERSION
+
+# description and io.k8s.description must carry the SAME text, as the UBI
+# images do, with summary holding the short form. Spelled out twice rather
+# than shared via an ARG so no --build-arg can substitute product copy. Keep
+# the two in sync by hand when editing either.
+LABEL cpe="${WAF_CPE}" \
+      url="${WAF_URL}" \
+      version="${CORAZA_PROXY_WASM_VERSION:-unknown}" \
+      name="waf-1/waf-proxy-wasm" \
+      com.redhat.component="waf-proxy-wasm" \
+      summary="Coraza WebAssembly plugin for Red Hat Web Application Firewall" \
+      description="WebAssembly plugin that runs the Coraza Web Application Firewall engine inside Envoy, enforcing SecLang rules on Gateway API traffic. Loaded by Istio as a WasmPlugin on behalf of the Red Hat Web Application Firewall operator." \
+      io.k8s.description="WebAssembly plugin that runs the Coraza Web Application Firewall engine inside Envoy, enforcing SecLang rules on Gateway API traffic. Loaded by Istio as a WasmPlugin on behalf of the Red Hat Web Application Firewall operator." \
+      io.k8s.display-name="Red Hat Web Application Firewall Coraza plugin" \
+      io.openshift.tags="waf,security,networking,wasm" \
+      vendor="Red Hat, Inc."
+
+# NOTE: this covers coraza-proxy-wasm itself. The plugin also embeds
+# CoreRuleSet content at build time (wasmplugin/rules), whose licensing is an
+# unresolved licensing question - a second licence file may be required
+# here.
+COPY coraza-proxy-wasm/LICENSE /licenses/LICENSE
+
+COPY --from=builder /src/build/main.wasm /plugin.wasm

@@ -1,0 +1,85 @@
+# TinyGo build toolchain for coraza-proxy-wasm.
+#
+# Build-time only. This image is never shipped to customers, so it carries no
+# product labels. It exists because no Red Hat image can compile this
+# plugin; the reasoning is spelled out below.
+#
+# ---------------------------------------------------------------------------
+# Why this uses upstream Go and not ubi9/go-toolset
+# ---------------------------------------------------------------------------
+# Both substitutions were tried and both fail. Verified 2026-10-13.
+#
+# 1. ubi9/go-toolset cannot target wasm at all. Red Hat's Go vendors
+#    github.com/golang-fips/openssl/v2 into its standard library for FIPS.
+#    That package needs cgo, so compiling it for wasip1 fails:
+#
+#      vendor/github.com/golang-fips/openssl/v2/init.go:18:17: undefined: dlopen
+#      .../params.go:25:17: undefined: runtime.Pinner
+#
+#    There is no opt-out. The backend is gated only on !cmd_go_bootstrap, and
+#    GOEXPERIMENT=nosystemcrypto is rejected ("unknown GOEXPERIMENT").
+#    This is architectural, not a version problem.
+#
+# 2. TinyGo cannot be bumped past 0.34. go-re2 v1.6.0 ships a prebuilt
+#    libc++.a whose locale symbols are absent from the wasi-libc in newer
+#    TinyGo, so 0.38.0 fails at link time:
+#
+#      wasm-ld: error: .../libc++.a(locale.cpp.o): undefined symbol: isxdigit_l
+#
+# So the only combination that builds is the one upstream CI tests
+# (coraza-proxy-wasm/.github/workflows/ci.yaml): Go 1.23.12 + TinyGo 0.34.0.
+# Note go.mod declares "go 1.23.12" and the newest ubi9/go-toolset 1.23.x is
+# 1.23.9, so go-toolset could not have satisfied it regardless.
+#
+# Treat both versions as locked together. Changing either requires re-running
+# the upstream e2e and ftw suites, not just checking that it compiles:
+# magefiles/magefile.go patchWasm() rewrites specific wasip1 imports
+# ("fd_filestat_get", "path_filestat_get"), and if TinyGo stops emitting them
+# the patch silently no-ops and the plugin breaks inside Envoy.
+# ---------------------------------------------------------------------------
+
+# registry.access.redhat.com is an approved base image registry and needs
+# no pull secret. Only the base layer is Red Hat's; the Go toolchain below is
+# upstream by necessity - see the note above, and D9.
+FROM registry.access.redhat.com/ubi9/ubi:9.8@sha256:beba9460df08acc9f2d5a99f61b8544d5367b05e02c945ca726c6f07ca5963a7
+
+ARG TARGET_ARCH=amd64
+
+ARG GO_VERSION=1.23.12
+ARG GO_SHA256=d3847fef834e9db11bf64e3fb34db9c04db14e068eeb064f49af747010454f90
+
+ARG TINYGO_VERSION=0.34.0
+ARG TINYGO_SHA256=8acd27a39090e1e5c3ca341e81350f813ec6a02bf8090c4fc7c4b1afd4186341
+
+RUN set -eux; \
+    curl -fsSL -o /tmp/go.tar.gz \
+      "https://go.dev/dl/go${GO_VERSION}.linux-${TARGET_ARCH}.tar.gz"; \
+    echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum -c -; \
+    tar -xf /tmp/go.tar.gz -C /usr/local; \
+    rm -f /tmp/go.tar.gz
+
+RUN set -eux; \
+    curl -fsSL -o /tmp/tinygo.tar.gz \
+      "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo${TINYGO_VERSION}.linux-${TARGET_ARCH}.tar.gz"; \
+    echo "${TINYGO_SHA256}  /tmp/tinygo.tar.gz" | sha256sum -c -; \
+    tar -xf /tmp/tinygo.tar.gz -C /usr/local; \
+    rm -f /tmp/tinygo.tar.gz
+
+ENV PATH="/usr/local/go/bin:/usr/local/tinygo/bin:${PATH}"
+
+# Never let the Go toolchain fetch a different version. Without this, a go.mod
+# bump turns a hermetic build into a silent network download.
+ENV GOTOOLCHAIN=local
+
+# Fail here rather than in a consumer if the toolchain is unusable.
+RUN set -eux; \
+    go version; \
+    tinygo version; \
+    tinygo targets | grep -qx wasip1
+
+LABEL name="waf-tinygo-builder" \
+      summary="TinyGo toolchain for building coraza-proxy-wasm" \
+      description="UBI9 with pinned upstream Go and TinyGo releases. Build-time only; not a shipped product image." \
+      vendor="Red Hat, Inc." \
+      io.k8s.display-name="WAF TinyGo builder" \
+      io.k8s.description="UBI9 with pinned upstream Go and TinyGo releases, used to compile the Coraza proxy-wasm plugin."

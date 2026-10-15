@@ -1,0 +1,106 @@
+# Red Hat WAF operator.
+#
+# Source: coraza-kubernetes-operator submodule at the repository root.
+# Build context must be the repository root, not this directory.
+#
+# Base images come from registry.access.redhat.com rather than
+# registry.redhat.io: the content is identical, the prefix is equally approved
+# for released content, and it needs no pull secret.
+#
+# Unlike the wasm plugin (see tools/tinygo-builder), this is an ordinary Go
+# binary, so Red Hat's FIPS-enabled go-toolset is both usable and preferred.
+# go-toolset:1.26 provides Go 1.26.7; coraza-kubernetes-operator/go.mod
+# requires go 1.26.2.
+
+FROM registry.access.redhat.com/ubi9/go-toolset:1.26@sha256:f9e171ed4a2ecfd284b6d977d60f6a0ed33eac8628ad806a80cdf3521cb8bede AS builder
+
+WORKDIR /opt/app-root/src
+
+# Resolve dependencies first so the layer caches independently of source edits.
+#
+# NOTE: once network-isolated builds are enabled this must be satisfied
+# entirely from the prefetched dependency cache. Confirm whether the build
+# system exposes that cache automatically or whether its environment file has
+# to be sourced here first.
+COPY coraza-kubernetes-operator/go.mod go.mod
+COPY coraza-kubernetes-operator/go.sum go.sum
+RUN go mod download
+
+# Copy the whole module, matching the upstream Dockerfile. Copying selected
+# subdirectories risks silently missing a path the build later needs.
+COPY coraza-kubernetes-operator/ .
+
+ARG TARGETOS
+ARG TARGETARCH
+
+ARG GIT_SHA
+ARG DIRTY
+ARG CORAZA_KUBERNETES_OPERATOR_VERSION
+
+ENV GIT_SHA=${GIT_SHA:-unknown} \
+    DIRTY=${DIRTY:-unknown} \
+    CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unknown}
+
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+    go build -a -o manager -tags no_fs_access ./cmd/manager
+
+# ---------------------------------------------------------------------------
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8@sha256:c4c285d42941ebb2bd4da878479008e1e4536bb599aad1dbe568f89de9053661
+
+# ---------------------------------------------------------------------------
+# Labels that MUST be overridden, not omitted
+# ---------------------------------------------------------------------------
+# ubi-minimal sets cpe, url, description, io.k8s.description and version on
+# its own. Leaving any of them unset does not produce an empty label - it
+# silently ships UBI's value. The inherited cpe is the dangerous one:
+#
+#   cpe=cpe:/a:redhat:enterprise_linux:9::appstream
+#
+# That claims this image is RHEL 9 AppStream. It satisfies the
+# labels.required_labels presence check while being wrong, so the failure
+# surfaces late, at release, or not at all.
+#
+# The two values below are therefore set explicitly to empty until the real
+# values exist. An empty label overrides the inherited one, so we ship no
+# false metadata, and the policy check fails loudly on the missing value.
+#
+# TODO: set WAF_CPE to the product's CPE identifier once assigned. It must
+# match the value recorded in the release configuration exactly.
+ARG WAF_CPE=""
+# TODO(blocked on product): the customer-facing product URL.
+ARG WAF_URL=""
+# TODO: wire this from the build pipeline; it currently resolves to "unknown".
+ARG CORAZA_KUBERNETES_OPERATOR_VERSION
+
+ENV CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unknown}
+
+# description and io.k8s.description must carry the SAME text - that is what
+# the UBI images themselves do, with summary holding the short form. They are
+# spelled out twice rather than shared via an ARG so that no --build-arg can
+# substitute product copy. Keep the two in sync by hand when editing either.
+LABEL cpe="${WAF_CPE}" \
+      url="${WAF_URL}" \
+      version="${CORAZA_KUBERNETES_OPERATOR_VERSION}" \
+      name="waf-1/waf-rhel9-operator" \
+      com.redhat.component="waf-operator" \
+      summary="Red Hat Web Application Firewall operator" \
+      description="Operator that manages Coraza Web Application Firewall enforcement for Gateway API traffic, by configuring Istio WasmPlugin resources from RuleSet and Engine custom resources." \
+      io.k8s.description="Operator that manages Coraza Web Application Firewall enforcement for Gateway API traffic, by configuring Istio WasmPlugin resources from RuleSet and Engine custom resources." \
+      io.k8s.display-name="Red Hat Web Application Firewall operator" \
+      io.openshift.expose-services="" \
+      io.openshift.tags="waf,security,networking" \
+      vendor="Red Hat, Inc."
+
+ENV OPERATOR_BINARY_NAME="manager" \
+    USER_UID=1001 \
+    USER_NAME=waf-operator
+
+COPY coraza-kubernetes-operator/LICENSE /licenses/LICENSE
+COPY --from=builder /opt/app-root/src/manager /manager
+
+USER root
+RUN chown ${USER_UID} /manager
+USER ${USER_UID}
+
+ENTRYPOINT [ "/manager" ]

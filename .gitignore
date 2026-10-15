@@ -1,0 +1,23 @@
+# NOTE: the generated bundle under images/bundle/ is deliberately TRACKED.
+# Digest-rewriting automation can only update pullspecs that exist in a file
+# in the repository, so manifests/, metadata/ and tests/ must be committed.
+# Do not add patterns here that would exclude them.
+
+# Editor and OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Credentials and local environment overrides. Nothing of this kind belongs
+# in this repository.
+.env
+.env.*
+*.pem
+*.key
+
+# Locally extracted build artifacts, e.g. a plugin pulled out of an image for
+# inspection. Nothing here is built into the working tree by a normal build.
+*.wasm

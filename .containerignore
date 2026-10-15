@@ -1,0 +1,13 @@
+# Every build uses the repository root as context, so anything left in here
+# is sent to the container engine on each build. The git history dominates
+# that cost and is never needed by a Containerfile.
+#
+# Do NOT exclude the submodules or images/bundle/: the Containerfiles copy
+# from both, and an exclusion here fails the build at the COPY step.
+.git
+
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
