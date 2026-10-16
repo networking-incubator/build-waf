@@ -443,6 +443,21 @@ spec:
                         restartPolicy: NotRequired
                 serviceAccountName: coraza-kubernetes-operator
                 terminationGracePeriodSeconds: 10
+      permissions:
+        - serviceAccountName: coraza-kubernetes-operator
+          rules:
+            - apiGroups:
+                - networking.k8s.io
+              resources:
+                - networkpolicies
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
     strategy: deployment
   installModes:
     - supported: false
