@@ -7,8 +7,12 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main"
+    pipelinesascode.tekton.dev/on-cel-expression: >-
+      event == "push" && target_branch == "main" &&
+      ( "images/proxy-wasm/***".pathChanged() ||
+      "coraza-proxy-wasm".pathChanged() ||
+      "coraza-proxy-wasm/***".pathChanged() ||
+      ".tekton/waf-proxy-wasm-0-7-***".pathChanged() )
   labels:
     appstudio.openshift.io/application: waf-0-7
     appstudio.openshift.io/component: waf-proxy-wasm-0-7
