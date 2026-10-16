@@ -30,7 +30,10 @@ WORKDIR /src
 # prefetching must walk go.work rather than only the root go.mod, or a
 # network-isolated build will fail resolving mage and wazero.
 COPY coraza-proxy-wasm/go.mod coraza-proxy-wasm/go.sum ./
-COPY coraza-proxy-wasm/go.work coraza-proxy-wasm/go.work.sum ./
+# Glob, not an explicit pair: go.work is committed upstream but go.work.sum is
+# gitignored there, so it is absent from a clean checkout and naming it
+# directly fails the build.
+COPY coraza-proxy-wasm/go.work* ./
 COPY coraza-proxy-wasm/magefiles/ magefiles/
 RUN go mod download
 
