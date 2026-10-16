@@ -112,6 +112,42 @@ yq eval-all 'select(fi==0) * select(fi==1)' \
     "${CSV}" "${WORK_DIR}/overlay.yaml" > "${CSV}.merged"
 mv "${CSV}.merged" "${CSV}"
 
+# Carry the chart's namespaced Role into spec.install.spec.permissions.
+#
+# WORKAROUND for an upstream generator bug: hack/generate_bundle.py extracts
+# only the ClusterRole, so the chart's Role - which holds the networkpolicies
+# rules the Engine controller needs - is silently dropped. An operator
+# installed from the bundle then fails at runtime with "cannot list resource
+# networkpolicies".
+#
+# The rules are re-derived from the same chart with the same render arguments
+# rather than copied, so they cannot drift from upstream. Remove this once the
+# generator emits permissions itself.
+ROLE_RULES="${WORK_DIR}/role-rules.yaml"
+( cd "${UPSTREAM}" && helm template "${PACKAGE_NAME}" \
+    "charts/${PACKAGE_NAME}" \
+    --namespace coraza-system \
+    --kube-version 1.32.0 \
+    --version "${VERSION}" \
+    --set openshift.enabled=true \
+    --set istio.revision=openshift-gateway \
+    2>/dev/null ) \
+  | yq ea '[select(.kind == "Role") | .rules] | flatten(1)' > "${ROLE_RULES}"
+
+# eval-all matters: plain yq processes each rendered document separately and
+# would silently produce an empty list, so this guard is load-bearing.
+if [[ ! -s "${ROLE_RULES}" ]] || grep -qx '\[\]' "${ROLE_RULES}"; then
+    die "no Role rules found in the chart render; the permissions workaround needs revisiting"
+fi
+
+SA="$(yq '.spec.install.spec.clusterPermissions[0].serviceAccountName' "${CSV}")"
+SA="${SA}" ROLE_RULES="${ROLE_RULES}" yq -i '
+  .spec.install.spec.permissions = [{
+    "serviceAccountName": strenv(SA),
+    "rules": load(strenv(ROLE_RULES))
+  }]
+' "${CSV}"
+
 # Point the operator at the shipped plugin instead of its compiled-in
 # ghcr.io default. Handled here rather than in the overlay because appending
 # to a list is not a merge: we replace any existing flag, then add ours.
