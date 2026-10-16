@@ -105,8 +105,12 @@ CSV="${WORK_DIR}/bundle/manifests/${PACKAGE_NAME}.clusterserviceversion.yaml"
 # 2. Overlay the downstream additions
 # --------------------------------------------------------------------------
 
+# Comments are stripped before merging. yq carries them into the output, so
+# anything written in the overlay would otherwise end up inside a shipped
+# artifact - including substituted image pullspecs, since envsubst rewrites
+# comment text too. Keep the overlay well commented; none of it ships.
 OPERATOR_IMAGE="${OPERATOR_IMAGE}" WASM_IMAGE="${WASM_IMAGE}" \
-    envsubst < "${OVERLAY}" > "${WORK_DIR}/overlay.yaml"
+    envsubst < "${OVERLAY}" | yq '... comments=""' > "${WORK_DIR}/overlay.yaml"
 
 yq eval-all 'select(fi==0) * select(fi==1)' \
     "${CSV}" "${WORK_DIR}/overlay.yaml" > "${CSV}.merged"

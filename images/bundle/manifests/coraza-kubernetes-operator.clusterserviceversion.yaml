@@ -1,14 +1,5 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
-# Downstream additions to the generated ClusterServiceVersion.
-#
-# Merged over the upstream output by hack/generate-bundle.sh. Everything here
-# is a Red Hat productization concern that does not belong upstream. Keep it
-# declarative: if something cannot be expressed as a merge, prefer an explicit
-# yq expression in the script over adding logic to this file.
-#
-# registry.redhat.io/waf-1/waf-rhel9-operator@sha256:0000000000000000000000000000000000000000000000000000000000000000 and registry.redhat.io/waf-1/waf-proxy-wasm@sha256:0000000000000000000000000000000000000000000000000000000000000000 are substituted by the script and are
-# required to be digest-pinned.
 metadata:
   annotations:
     alm-examples: |
@@ -134,15 +125,10 @@ metadata:
       ]
     capabilities: Basic Install
     categories: Security
-    containerImage: registry.redhat.io/waf-1/waf-rhel9-operator@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    containerImage: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:ae10b1bb6ecf965d82525998fffddbb75513877caa30460b3866f3383df463f5
     repository: https://github.com/networking-incubator/coraza-kubernetes-operator
-    # Shown in OperatorHub / the OpenShift console.
     support: Red Hat
-    # TODO: confirm with product before GA.
     operators.openshift.io/valid-subscription: '["Red Hat Web Application Firewall"]'
-    # Infrastructure feature declarations. Each must be accurate: they are
-    # surfaced to customers as filters in OperatorHub.
-    # TODO: verify each of these against the operator's actual behaviour.
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "false"
     features.operators.openshift.io/proxy-aware: "false"
@@ -287,6 +273,7 @@ spec:
             - apiGroups:
                 - gateway.networking.k8s.io
               resources:
+                - gatewayclasses
                 - gateways
               verbs:
                 - get
@@ -302,6 +289,18 @@ spec:
                 - get
                 - patch
                 - update
+            - apiGroups:
+                - telemetry.istio.io
+              resources:
+                - telemetries
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
             - apiGroups:
                 - waf.k8s.coraza.io
               resources:
@@ -366,7 +365,7 @@ spec:
                 enableServiceLinks: false
                 containers:
                   - name: manager
-                    image: registry.redhat.io/waf-1/waf-rhel9-operator@sha256:0000000000000000000000000000000000000000000000000000000000000000
+                    image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:ae10b1bb6ecf965d82525998fffddbb75513877caa30460b3866f3383df463f5
                     imagePullPolicy: IfNotPresent
                     command:
                       - /manager
@@ -383,7 +382,7 @@ spec:
                       - --zap-log-level=info
                       - --zap-stacktrace-level=error
                       - --zap-time-encoding=rfc3339nano
-                      - --default-wasm-image=oci://registry.redhat.io/waf-1/waf-proxy-wasm@sha256:0000000000000000000000000000000000000000000000000000000000000000
+                      - --default-wasm-image=oci://quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:5f8b7e09f9b230fe773cd9621f081589240b25a5857cb2fff30f7fd887ebf98b
                     ports:
                       - name: metrics
                         containerPort: 8443
@@ -479,14 +478,8 @@ spec:
     url: https://github.com/networking-incubator
   version: "0.7.0"
   minKubeVersion: 1.32.0
-  # Not emitted by the upstream generator. Required for disconnected installs
-  # and checked at release time. Every image the operator needs at runtime must be
-  # listed here, digest-pinned.
-  #
-  # Keep entries at least one line apart: automation rewrites these pullspecs,
-  # and adjacent references produce merge conflicts on the update PRs.
   relatedImages:
     - name: waf-operator
-      image: registry.redhat.io/waf-1/waf-rhel9-operator@sha256:0000000000000000000000000000000000000000000000000000000000000000
+      image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:ae10b1bb6ecf965d82525998fffddbb75513877caa30460b3866f3383df463f5
     - name: waf-proxy-wasm
-      image: registry.redhat.io/waf-1/waf-proxy-wasm@sha256:0000000000000000000000000000000000000000000000000000000000000000
+      image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:5f8b7e09f9b230fe773cd9621f081589240b25a5857cb2fff30f7fd887ebf98b

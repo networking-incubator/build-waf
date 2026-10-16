@@ -6,8 +6,12 @@
 # declarative: if something cannot be expressed as a merge, prefer an explicit
 # yq expression in the script over adding logic to this file.
 #
-# ${OPERATOR_IMAGE} and ${WASM_IMAGE} are substituted by the script and are
+# The two image placeholders below are substituted by the script and are
 # required to be digest-pinned.
+#
+# Do not write a placeholder name into a comment: envsubst rewrites comments
+# too, and yq carries them into the generated CSV, so the substituted value
+# ends up in a shipped artifact.
 
 metadata:
   annotations:
