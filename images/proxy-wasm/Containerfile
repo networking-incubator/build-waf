@@ -8,10 +8,16 @@
 # in-process. Istio expects the module at /plugin.wasm.
 
 # The toolchain cannot be a stock Red Hat image - see tools/tinygo-builder
-# for why. In CI this is replaced by a digest-pinned reference to the
-# tinygo-builder image, kept current automatically. The local tag below is
-# only a convenience default for developer builds.
-ARG BUILDER_IMAGE=localhost/waf-tinygo-builder:0.34.0
+# for why.
+#
+# Digest-pinned so the plugin is always compiled by a known toolchain, and so
+# that digest-rewriting automation can keep it current: a tag reference would
+# be invisible to it and would silently stop being updated.
+#
+# For local builds, override it with the image "make image.tinygo-builder"
+# produces:
+#   podman build --build-arg BUILDER_IMAGE=localhost/waf-tinygo-builder:0.34.0 ...
+ARG BUILDER_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-tinygo-builder@sha256:bd9a0ff6f256503b98496246d2eed1b9152a5a60112087a3d99a9bd9ff81e2cd
 
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -24,7 +30,10 @@ WORKDIR /src
 # prefetching must walk go.work rather than only the root go.mod, or a
 # network-isolated build will fail resolving mage and wazero.
 COPY coraza-proxy-wasm/go.mod coraza-proxy-wasm/go.sum ./
-COPY coraza-proxy-wasm/go.work coraza-proxy-wasm/go.work.sum ./
+# Glob, not an explicit pair: go.work is committed upstream but go.work.sum is
+# gitignored there, so it is absent from a clean checkout and naming it
+# directly fails the build.
+COPY coraza-proxy-wasm/go.work* ./
 COPY coraza-proxy-wasm/magefiles/ magefiles/
 RUN go mod download
 
