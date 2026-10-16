@@ -1,10 +1,14 @@
 # Developer convenience targets.
 #
 # IMPORTANT: this Makefile only launches the same Containerfiles that CI
-# builds, with the same context and no extra build arguments. It is not a
-# build definition. If a build needs a new argument, it belongs in the
-# Containerfile or in the pipeline, never only here - otherwise local builds
-# and CI silently diverge.
+# builds, with the same context. It is not a build definition. If a build
+# needs a new argument, it belongs in the Containerfile or in the pipeline,
+# never only here - otherwise local builds and CI silently diverge.
+#
+# One documented exception: image.proxy-wasm passes BUILDER_IMAGE, so the
+# plugin is compiled by the toolchain image you just built locally instead of
+# pulling the published one. CI sets the same argument via the Containerfile
+# default, which digest-rewriting automation keeps current.
 
 CONTAINER_TOOL ?= podman
 
@@ -54,7 +58,9 @@ image.operator: ## Build the operator image
 
 .PHONY: image.proxy-wasm
 image.proxy-wasm: image.tinygo-builder ## Build the Coraza WebAssembly plugin image
-	$(CONTAINER_TOOL) build -t $(PROXY_WASM_TAG) -f images/proxy-wasm/Containerfile .
+	$(CONTAINER_TOOL) build -t $(PROXY_WASM_TAG) \
+		--build-arg BUILDER_IMAGE=$(TINYGO_BUILDER_IMAGE) \
+		-f images/proxy-wasm/Containerfile .
 
 .PHONY: image.bundle
 image.bundle: $(BUNDLE_CSV) ## Build the OLM bundle image from the committed manifests
