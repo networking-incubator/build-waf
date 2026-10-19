@@ -128,6 +128,13 @@ import section, or compare against an unpatched build.
   be referenced by tag.
 - Pullspecs in the bundle must be digest-pinned. `hack/generate-bundle.sh`
   enforces this.
+- Pullspecs that digest-rewriting automation keeps current - the
+  `BUILDER_IMAGE` and `DEFAULT_WASM_IMAGE` build arguments - must stay bare
+  digest-pinned references. A tag is invisible to that automation, and so is
+  a value with a scheme folded into it, which is why `images/operator`
+  composes `oci://` around `DEFAULT_WASM_IMAGE` in the `ENV` rather than
+  storing it in the argument. Either mistake fails silently: the line simply
+  stops being updated.
 
 ## When something is undecided
 
