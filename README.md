@@ -65,6 +65,26 @@ podman build -t waf-bundle:dev     -f images/bundle/Containerfile .
 tagged exactly as the `BUILDER_IMAGE` default in
 `images/proxy-wasm/Containerfile` or the plugin build will not find it.
 
+### The plugin the operator defaults to
+
+Upstream compiles in a `ghcr.io` reference to the plugin, used when an Engine
+omits `spec.driver.wasm.image`. `images/operator/Containerfile` replaces it
+by baking `CORAZA_DEFAULT_WASM_IMAGE` into the image from the digest-pinned
+`DEFAULT_WASM_IMAGE` build argument, so a default install never reaches
+outside the product's own registry and works in a disconnected cluster.
+
+That argument is a pullspec, not a URL: the `oci://` scheme is added around
+it in the `ENV`. Keep it that way and keep it digest-pinned, or
+digest-rewriting automation will no longer recognise the line and it will
+silently go stale.
+
+The precedence upstream defines is unchanged - per-Engine
+`spec.driver.wasm.image`, then `--default-wasm-image`, then
+`CORAZA_DEFAULT_WASM_IMAGE`, then the compiled-in default - so a cluster
+admin can still override it. The bundle passes the flag explicitly, so in an
+OLM install the CSV wins; the baked value is what the image resolves to on
+its own.
+
 ### Regenerating the bundle
 
 Not part of the pipeline. Run it when the bundle changes structurally - a new

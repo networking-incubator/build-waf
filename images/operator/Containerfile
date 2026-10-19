@@ -73,7 +73,30 @@ ARG WAF_URL=""
 # TODO: wire this from the build pipeline; it currently resolves to "unknown".
 ARG CORAZA_KUBERNETES_OPERATOR_VERSION
 
-ENV CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unknown}
+# The productized wasm plugin this operator defaults to when an Engine omits
+# spec.driver.wasm.image.
+#
+# Upstream compiles in a ghcr.io reference. Shipping that would make the
+# product reach outside the product's own registry on a default install, and
+# in a disconnected cluster it would simply fail. Pinning it here locks the
+# operator image to the plugin build it was released with.
+#
+# This is deliberately an image-level default, not a hardcoded constant: the
+# upstream precedence is per-Engine spec > --default-wasm-image >
+# CORAZA_DEFAULT_WASM_IMAGE > compiled-in default, so a cluster admin can
+# still override it. The bundle's ClusterServiceVersion passes the flag
+# explicitly and therefore wins in the OLM install path; this value is what
+# the image resolves to on its own, which is what any other install path and
+# any manual run of the image gets.
+#
+# Digest-pinned so digest-rewriting automation keeps it current. The plugin
+# build raises a pull request against this line; a tag would be invisible to
+# it and would silently stop being updated. The oci:// scheme is added below
+# rather than stored in the value, so the pullspec here is matchable.
+ARG DEFAULT_WASM_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:e869fb5cd15dd14fbbd2f2a91ab36ba4930fd6cb8c8524bda63985e0a73f8af6
+
+ENV CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unknown} \
+    CORAZA_DEFAULT_WASM_IMAGE="oci://${DEFAULT_WASM_IMAGE}"
 
 # description and io.k8s.description must carry the SAME text - that is what
 # the UBI images themselves do, with summary holding the short form. They are

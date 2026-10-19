@@ -156,9 +156,13 @@ SA="${SA}" ROLE_RULES="${ROLE_RULES}" yq -i '
 # ghcr.io default. Handled here rather than in the overlay because appending
 # to a list is not a merge: we replace any existing flag, then add ours.
 #
-# NOTE: the operator also accepts CORAZA_DEFAULT_WASM_IMAGE, and an Engine can
-# override per-resource via spec.driver.wasm.image. Using the flag keeps the
-# downstream source identical to upstream.
+# NOTE: images/operator/Containerfile already bakes the same digest in as
+# CORAZA_DEFAULT_WASM_IMAGE, so this is belt and braces - the flag outranks
+# the environment variable and therefore wins in the OLM install path. Both
+# are re-pinned by the same automation off the same plugin build, so they
+# cannot drift. The flag is kept because it makes the dependency visible in
+# the shipped manifest; an Engine can still override per-resource via
+# spec.driver.wasm.image.
 WASM_IMAGE="${WASM_IMAGE}" yq -i '
   .spec.install.spec.deployments[0].spec.template.spec.containers
     |= map(
