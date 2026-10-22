@@ -36,11 +36,13 @@ LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1 \
 # ---------------------------------------------------------------------------
 # Red Hat product labels
 # ---------------------------------------------------------------------------
-# TODO: set to the product's CPE identifier once assigned. Must match the
-# value recorded in the release configuration exactly. Left empty rather than
-# given a placeholder so the policy check fails loudly instead of passing a
-# value that is present but wrong.
-ARG WAF_CPE=""
+# The product's CPE identifier. Must match the value recorded in the release
+# configuration exactly.
+#
+# Version-scoped: the 0.7 in it is the product stream, not the bundle
+# version. A new stream needs a new CPE here and in the release
+# configuration, changed together.
+ARG WAF_CPE="cpe:/a:redhat:web_application_firewall:0.7::el9"
 # TODO(blocked on product): the customer-facing product URL.
 ARG WAF_URL=""
 # TODO: wire from the build pipeline; currently resolves to "unknown".

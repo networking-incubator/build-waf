@@ -112,7 +112,7 @@ digest-pinned, and cross-checks that the OLM labels in
 | Artifact | State |
 |---|---|
 | `tools/tinygo-builder` | builds; compiles the plugin |
-| `images/operator` | builds; placeholder `cpe`, `url`, `version` |
+| `images/operator` | builds; empty `url`, `version` |
 | `images/proxy-wasm` | builds; wasm import patch verified |
 | `images/bundle` | builds; **generated with placeholder digests, do not ship** |
 | `images/catalog` | not started |
@@ -146,8 +146,8 @@ digest-pinned, and cross-checks that the OLM labels in
 - [ ] Multi-arch build platforms for the operator. The plugin is
       architecture independent; this affects the operator and the builder
       image only.
-- [ ] Fill in the `cpe` and `url` labels once the product values are known.
-      They are deliberately empty today - see below.
+- [ ] Fill in the `url` label once the product value is known. It is
+      deliberately empty today - see below. `cpe` is set.
 
 ## Gotchas
 
