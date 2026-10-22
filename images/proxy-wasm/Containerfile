@@ -63,11 +63,17 @@ RUN go run mage.go build
 # of shipping UBI's cpe, url or description by accident.
 FROM scratch
 
-# TODO: set to the product's CPE identifier once assigned. Must match the
-# value recorded in the release configuration exactly. Left empty rather than
-# given a placeholder so the policy check fails loudly instead of passing a
-# value that is present but wrong.
-ARG WAF_CPE=""
+# The product's CPE identifier. Must match the value recorded in the release
+# configuration exactly.
+#
+# Version-scoped: the 0.7 in it is the product stream, not the plugin
+# version. A new stream needs a new CPE here and in the release
+# configuration, changed together.
+#
+# el9 despite this image being FROM scratch: the CPE names the product and
+# the RHEL generation it is built for and shipped against, not the contents
+# of this particular layer.
+ARG WAF_CPE="cpe:/a:redhat:web_application_firewall:0.7::el9"
 # TODO(blocked on product): the customer-facing product URL.
 ARG WAF_URL=""
 # TODO: wire from the build pipeline; currently resolves to "unknown".

@@ -61,13 +61,18 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1791898448@sha256:c4c285d42
 # labels.required_labels presence check while being wrong, so the failure
 # surfaces late, at release, or not at all.
 #
-# The two values below are therefore set explicitly to empty until the real
-# values exist. An empty label overrides the inherited one, so we ship no
-# false metadata, and the policy check fails loudly on the missing value.
+# Every one of them is therefore overridden below. Where the real value does
+# not exist yet the override is explicitly empty: an empty label still
+# overrides the inherited one, so we ship no false metadata, and the policy
+# check fails loudly on the missing value instead of passing a wrong one.
 #
-# TODO: set WAF_CPE to the product's CPE identifier once assigned. It must
-# match the value recorded in the release configuration exactly.
-ARG WAF_CPE=""
+# The product's CPE identifier. It must match the value recorded in the
+# release configuration exactly.
+#
+# Version-scoped: the 0.7 in it is the product stream, not the operator
+# build. A new stream needs a new CPE here and in the release configuration,
+# changed together.
+ARG WAF_CPE="cpe:/a:redhat:web_application_firewall:0.7::el9"
 # TODO(blocked on product): the customer-facing product URL.
 ARG WAF_URL=""
 # TODO: wire this from the build pipeline; it currently resolves to "unknown".
