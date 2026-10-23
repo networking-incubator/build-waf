@@ -27,6 +27,14 @@ spec:
     value: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator-bundle:{{revision}}
   - name: dockerfile
     value: images/bundle/Containerfile
+  # No prefetch-input: the bundle is FROM scratch and only COPYs files that
+  # are already in the repository, so it resolves nothing and needs no
+  # network even before this was turned on.
+  - name: hermetic
+    value: "true"
+  # Produces the source container the release policy requires.
+  - name: build-source-image
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.
