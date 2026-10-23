@@ -1,0 +1,30 @@
+---
+# Toolchain tarballs, prefetched so the builder can be built network isolated.
+#
+# Read by the build system's prefetch step, not by the Containerfile. The
+# artifacts are downloaded and checksum verified before the build starts and
+# are handed to it at /cachi2/output/deps/generic/<filename>.
+#
+# This duplicates the version and checksum held in Containerfile ARGs, which
+# looks fragile but is self-policing: the file name here is version
+# independent, so if the two ever disagree the Containerfile's own
+# "sha256sum -c" rejects the tarball and the build fails immediately. Drift
+# cannot reach an image. Still, change both together.
+#
+# Single architecture on purpose, matching the Component. Building the
+# toolchain for another architecture means another entry here, distinguished
+# by filename, and a Containerfile that selects between them.
+metadata:
+  version: "1.0"
+
+artifacts:
+  # Upstream Go. Red Hat's go-toolset cannot target wasm - see the
+  # Containerfile for the full reason - so this is deliberately not a Red Hat
+  # build of Go.
+  - download_url: https://go.dev/dl/go1.23.12.linux-amd64.tar.gz
+    checksum: sha256:d3847fef834e9db11bf64e3fb34db9c04db14e068eeb064f49af747010454f90
+    filename: go.tar.gz
+
+  - download_url: https://github.com/tinygo-org/tinygo/releases/download/v0.34.0/tinygo0.34.0.linux-amd64.tar.gz
+    checksum: sha256:8acd27a39090e1e5c3ca341e81350f813ec6a02bf8090c4fc7c4b1afd4186341
+    filename: tinygo.tar.gz

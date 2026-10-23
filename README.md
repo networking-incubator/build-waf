@@ -134,14 +134,16 @@ digest-pinned, and cross-checks that the OLM labels in
       components do not trigger each other in a rebuild loop.
 - [ ] Wire the version build args. All three images currently label
       `version=unknown`.
-- [x] Enable network-isolated builds and dependency prefetching, on the
-      operator, plugin and bundle. The toolchain image is excluded on
-      purpose: it downloads its Go and TinyGo releases, so it cannot be
-      network isolated, and it is build-time only.
-      The module paths are inside the submodules, so the prefetch input
+- [x] Enable network-isolated builds and dependency prefetching, on all
+      four images.
+      The Go module paths are inside the submodules, so the prefetch input
       names the submodule directory. One path is enough for the plugin even
       though it is a Go *workspace* - the prefetch reads `go.work` and picks
       up the `magefiles` module and `mage` itself.
+      The toolchain image needs no package manager: its two tarballs are
+      ordinary file downloads, prefetched from
+      `tools/tinygo-builder/artifacts.lock.yaml`, which pins each by URL and
+      checksum.
 - [ ] Regenerate `images/bundle/` against real digests before any release.
 - [ ] Verify each `features.operators.openshift.io/*` value in
       `hack/bundle-overlay.yaml`. They are placeholders and are shown to
