@@ -51,16 +51,34 @@ ARG GO_SHA256=d3847fef834e9db11bf64e3fb34db9c04db14e068eeb064f49af747010454f90
 ARG TINYGO_VERSION=0.34.0
 ARG TINYGO_SHA256=8acd27a39090e1e5c3ca341e81350f813ec6a02bf8090c4fc7c4b1afd4186341
 
+# Where the build system leaves prefetched artifacts. In a network isolated
+# build the two tarballs are already here, downloaded and checksum verified
+# from tools/tinygo-builder/artifacts.lock.yaml before the build started. In
+# a local build the directory does not exist and curl fetches them instead.
+#
+# Both paths end at the same "sha256sum -c" below, so the tarball that gets
+# unpacked is identical either way, and a lockfile that has drifted from the
+# ARGs above fails here rather than producing a differently built toolchain.
+ARG PREFETCH_DIR=/cachi2/output/deps/generic
+
 RUN set -eux; \
-    curl -fsSL -o /tmp/go.tar.gz \
-      "https://go.dev/dl/go${GO_VERSION}.linux-${TARGET_ARCH}.tar.gz"; \
+    if [ -f "${PREFETCH_DIR}/go.tar.gz" ]; then \
+      cp "${PREFETCH_DIR}/go.tar.gz" /tmp/go.tar.gz; \
+    else \
+      curl -fsSL -o /tmp/go.tar.gz \
+        "https://go.dev/dl/go${GO_VERSION}.linux-${TARGET_ARCH}.tar.gz"; \
+    fi; \
     echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum -c -; \
     tar -xf /tmp/go.tar.gz -C /usr/local; \
     rm -f /tmp/go.tar.gz
 
 RUN set -eux; \
-    curl -fsSL -o /tmp/tinygo.tar.gz \
-      "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo${TINYGO_VERSION}.linux-${TARGET_ARCH}.tar.gz"; \
+    if [ -f "${PREFETCH_DIR}/tinygo.tar.gz" ]; then \
+      cp "${PREFETCH_DIR}/tinygo.tar.gz" /tmp/tinygo.tar.gz; \
+    else \
+      curl -fsSL -o /tmp/tinygo.tar.gz \
+        "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo${TINYGO_VERSION}.linux-${TARGET_ARCH}.tar.gz"; \
+    fi; \
     echo "${TINYGO_SHA256}  /tmp/tinygo.tar.gz" | sha256sum -c -; \
     tar -xf /tmp/tinygo.tar.gz -C /usr/local; \
     rm -f /tmp/tinygo.tar.gz

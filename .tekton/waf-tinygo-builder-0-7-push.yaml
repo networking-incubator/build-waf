@@ -27,6 +27,17 @@ spec:
     value: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-tinygo-builder:{{revision}}
   - name: dockerfile
     value: tools/tinygo-builder/Containerfile
+  # Network-isolated build. The toolchain tarballs are plain file downloads
+  # rather than package manager dependencies, so they are prefetched from
+  # tools/tinygo-builder/artifacts.lock.yaml, which pins each one by URL and
+  # checksum.
+  #
+  # No build-source-image: this image is build-time only and is not part of
+  # the product Application, so nothing requires a source container for it.
+  - name: hermetic
+    value: "true"
+  - name: prefetch-input
+    value: '{"type":"generic","path":"tools/tinygo-builder"}'
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.

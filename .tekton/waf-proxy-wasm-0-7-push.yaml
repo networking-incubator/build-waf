@@ -29,6 +29,16 @@ spec:
     value: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm:{{revision}}
   - name: dockerfile
     value: images/proxy-wasm/Containerfile
+  # Network-isolated build. One path is enough even though the submodule is
+  # a Go workspace: Hermeto reads go.work and picks up the magefiles module
+  # and mage itself, which the build needs.
+  - name: hermetic
+    value: "true"
+  - name: prefetch-input
+    value: '{"type":"gomod","path":"coraza-proxy-wasm"}'
+  # Produces the source container the release policy requires.
+  - name: build-source-image
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.

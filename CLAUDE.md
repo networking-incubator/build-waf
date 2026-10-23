@@ -49,6 +49,13 @@ together in `tools/tinygo-builder/Containerfile`, which documents exactly
 why each substitution fails. A version change must be validated with the
 upstream e2e and ftw suites, not by a successful compile.
 
+If you do change a version, change
+`tools/tinygo-builder/artifacts.lock.yaml` in the same commit. It repeats
+the version and checksum so the tarballs can be prefetched for a
+network-isolated build. The two cannot silently diverge - the lockfile's
+file names carry no version, so a mismatch fails the Containerfile's own
+`sha256sum -c` - but the failure is much easier to read if you expect it.
+
 **The bundle under `images/bundle/` is generated and committed.** Regenerate
 it with `make bundle.generate`; never hand-edit the CSV, and never add a
 gitignore pattern that would exclude `manifests/`, `metadata/` or `tests/`.
