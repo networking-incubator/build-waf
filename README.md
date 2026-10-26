@@ -130,14 +130,20 @@ digest-pinned, and cross-checks that the OLM labels in
       upstream channel is currently empty (`entries: []`), and pre-release
       channels must be named `*-candidate-*`, `*-dev-preview-*` or
       `*-pre-ga-*`.
-- [ ] `.tekton/` pipeline definitions, with path-based trigger filters so the
+- [x] `.tekton/` pipeline definitions, with path-based trigger filters so the
       components do not trigger each other in a rebuild loop.
 - [ ] Wire the version build args. All three images currently label
       `version=unknown`.
-- [ ] Enable network-isolated builds and dependency prefetching. The module
-      paths are inside submodules, and `coraza-proxy-wasm` is a Go
-      *workspace*, so the prefetch must cover `go.work` and the `magefiles`
-      module or `mage` will not resolve.
+- [x] Enable network-isolated builds and dependency prefetching, on all
+      four images.
+      The Go module paths are inside the submodules, so the prefetch input
+      names the submodule directory. One path is enough for the plugin even
+      though it is a Go *workspace* - the prefetch reads `go.work` and picks
+      up the `magefiles` module and `mage` itself.
+      The toolchain image needs no package manager: its two tarballs are
+      ordinary file downloads, prefetched from
+      `tools/tinygo-builder/artifacts.lock.yaml`, which pins each by URL and
+      checksum.
 - [ ] Regenerate `images/bundle/` against real digests before any release.
 - [ ] Verify each `features.operators.openshift.io/*` value in
       `hack/bundle-overlay.yaml`. They are placeholders and are shown to
