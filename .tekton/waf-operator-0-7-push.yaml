@@ -27,9 +27,21 @@ spec:
     value: '{{revision}}'
   - name: output-image
     value: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator:{{revision}}
+  # The operator is the only component whose binary is architecture specific,
+  # so it is the only one built for more than one platform. The plugin is
+  # WebAssembly, the bundle and the plugin image are FROM scratch, and the
+  # toolchain image only has to run where the plugin is compiled.
+  #
+  # Both base images are pinned to manifest lists covering these platforms,
+  # so the digests resolve per architecture and need no change here. The
+  # build itself is already architecture parametric via TARGETOS/TARGETARCH.
+  #
+  # If a build runs out of resources, the replacement for linux/arm64 is
+  # linux-m2xlarge/arm64 - a larger host, not an additional one.
   - name: build-platforms
     value:
     - linux/x86_64
+    - linux/arm64
   - name: dockerfile
     value: images/operator/Containerfile
   # Network-isolated build. Hermeto resolves the module graph from the
