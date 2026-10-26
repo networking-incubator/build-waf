@@ -98,7 +98,7 @@ ARG CORAZA_KUBERNETES_OPERATOR_VERSION
 # build raises a pull request against this line; a tag would be invisible to
 # it and would silently stop being updated. The oci:// scheme is added below
 # rather than stored in the value, so the pullspec here is matchable.
-ARG DEFAULT_WASM_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:6ad7b854cb2cc25ce51f38d5b99c977b8b0cd63fe25ed4c9cc39eec32520cc0c
+ARG DEFAULT_WASM_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:858b61f15791582e830a8a4cc3c8ae3c7de9fdd62fe27e150e69d5e91092a3e2
 
 ENV CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unknown} \
     CORAZA_DEFAULT_WASM_IMAGE="oci://${DEFAULT_WASM_IMAGE}"
