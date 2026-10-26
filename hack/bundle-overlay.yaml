@@ -14,6 +14,22 @@
 # ends up in a shipped artifact.
 
 metadata:
+  # Architectures and operating systems the operator may be installed on.
+  #
+  # These are load bearing, not descriptive: OLM refuses to schedule the
+  # operator on a node whose architecture is not listed, and when the labels
+  # are absent entirely it assumes amd64 only. Omitting them produces a
+  # perfectly good multi-architecture image that silently will not install,
+  # with nothing in the build or the policy checks to say why.
+  #
+  # Keep this list in step with build-platforms in the operator's pipeline
+  # definitions. Claiming an architecture that is not built is worse than
+  # not claiming it: the install succeeds and the pod then fails to pull.
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.arm64: supported
+    operatorframework.io/os.linux: supported
+
   annotations:
     # Shown in OperatorHub / the OpenShift console.
     support: Red Hat

@@ -140,6 +140,10 @@ metadata:
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
   name: coraza-kubernetes-operator.v0.7.0
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.arm64: supported
+    operatorframework.io/os.linux: supported
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
