@@ -382,7 +382,7 @@ spec:
                       - --zap-log-level=info
                       - --zap-stacktrace-level=error
                       - --zap-time-encoding=rfc3339nano
-                      - --default-wasm-image=oci://quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:6ad7b854cb2cc25ce51f38d5b99c977b8b0cd63fe25ed4c9cc39eec32520cc0c
+                      - --default-wasm-image=oci://quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:8ea1feb1659d46b02a4c55c16d8206c33529f033fcf7f4dae295ba62b6161720
                     ports:
                       - name: metrics
                         containerPort: 8443
@@ -497,4 +497,4 @@ spec:
     - name: waf-operator
       image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:222702cb75ce6f1e1f55faabc8b2760be852573251537ae9445e17e4265a5d86
     - name: waf-proxy-wasm
-      image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:6ad7b854cb2cc25ce51f38d5b99c977b8b0cd63fe25ed4c9cc39eec32520cc0c
+      image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:8ea1feb1659d46b02a4c55c16d8206c33529f033fcf7f4dae295ba62b6161720
