@@ -58,10 +58,15 @@ RUN go run mage.go build
 
 # ---------------------------------------------------------------------------
 
-# scratch, matching upstream. Besides being correct for a single-artifact wasm
-# image, it inherits no labels - so unlike the operator image there is no risk
-# of shipping UBI's cpe, url or description by accident.
-FROM scratch
+# ubi-minimal-pqc rather than upstream's scratch: a scratch image carries no
+# RPM database, so the certification checks in the build pipeline cannot read
+# it and report an error rather than a result, which the release policy then
+# rejects.
+#
+# Unlike scratch, this base sets cpe, url, version, description and
+# io.k8s.description itself, and an omitted label ships the base value rather
+# than an empty one. Every one of those is overridden below; keep it that way.
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc@sha256:d0fdfb1401ee754872f60c2527563671c16112080e5254139133908178700911
 
 # The product's CPE identifier. Must match the value recorded in the release
 # configuration exactly.
