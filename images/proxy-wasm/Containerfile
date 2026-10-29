@@ -17,7 +17,7 @@
 # For local builds, override it with the image "make image.tinygo-builder"
 # produces:
 #   podman build --build-arg BUILDER_IMAGE=localhost/waf-tinygo-builder:0.34.0 ...
-ARG BUILDER_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-tinygo-builder@sha256:6a31e00892f15c58ed7f0abde110bab37521059c65f459573059323b268b030d
+ARG BUILDER_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-tinygo-builder@sha256:219a02d6dfe8a0f947f056441e0d30b70a75432c4be5de8365e4eaf544feb9b1
 
 FROM ${BUILDER_IMAGE} AS builder
 
