@@ -41,7 +41,7 @@
 # registry.access.redhat.com is an approved base image registry and needs
 # no pull secret. Only the base layer is Red Hat's; the Go toolchain below is
 # upstream by necessity - see the note above, and D9.
-FROM registry.access.redhat.com/ubi9/ubi:9.8-1793179168@sha256:5f08e80aa970ae77712e75e5e857ac0b396abc900823c4d041c1150a9538a13f
+FROM registry.access.redhat.com/ubi9/ubi:9.8-1793580630@sha256:8f989cc9270da6abec0144c22846ed1e6e92e462dc7768ce0981c4ac1d574733
 
 ARG TARGET_ARCH=amd64
 
