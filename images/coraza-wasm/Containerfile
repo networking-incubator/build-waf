@@ -1,0 +1,193 @@
+# Coraza Proxy-Wasm module, built from coraza-rs (operand).
+#
+# Source: coraza-rs submodule at the repository root, crate envoy-coraza.
+# Build context must be the repository root, not this directory.
+#
+# Structure follows the proven wasm-shim product build: UBI plus the RHEL
+# rust-toolset RPMs, cross-compiling to wasm32-wasip1, with the module copied
+# into a minimal final stage at /plugin.wasm.
+
+# ---------------------------------------------------------------------------
+# Build Stage
+# ---------------------------------------------------------------------------
+#
+# registry.redhat.io, NOT registry.access.redhat.com, and this is a deliberate
+# deviation from the convention used by the other images here.
+#
+# rust-std-static-wasm32-wasip1 is the cross-compilation standard library for
+# the wasm target. Without it cargo cannot build for wasm32-wasip1 at all:
+# rustc will still *name* the target in --print target-list, but the build
+# fails for want of a precompiled std. Verified 2026-11-04: the package is
+# absent from the public UBI repositories on both UBI9 and UBI10
+# (registry.access.redhat.com/ubi9/ubi:latest is RHEL 9.8 and offers only
+# rust-toolset and the host rust-std-static), and is reachable only through
+# the entitled RHEL AppStream content available to the product pipeline.
+#
+# Consequence: this image cannot be built without an entitlement, unlike the
+# other images in this repository. A local build will fail at the dnf step.
+#
+# TODO: digest-pin this base. It is left as a tag here only because the
+# digest cannot be resolved without registry credentials; a tag reference is
+# invisible to digest-rewriting automation and will silently stop being
+# updated.
+FROM registry.redhat.io/ubi9/ubi:latest AS builder
+
+ARG TARGET=wasm32-wasip1
+
+# Package set is deliberately smaller than the wasm-shim build's: envoy-coraza
+# pulls in no protobuf and no OpenSSL, so protobuf-compiler, protobuf-devel,
+# openssl-devel and perl are not needed here. gcc remains because cargo needs
+# a host linker driver for build scripts, and git because the dependency set
+# includes a git source (see the fetch note below).
+#
+# rpm --verify after install matches the reference build: it catches a package
+# that unpacked incorrectly before the failure can surface as a confusing
+# compiler error.
+RUN PKGS="rust-toolset rust-std-static-${TARGET} gcc git" \
+    && dnf install --nodocs --nobest --assumeyes $PKGS \
+    && rpm --verify --nogroup --nouser $PKGS \
+    && dnf -y clean all
+
+# Record the toolchain in the build log. coraza-rs ships a rust-toolchain.toml
+# pinning channel 1.99.1, but that file is a rustup directive and there is no
+# rustup here, so it is inert and cannot pull a different toolchain over the
+# network. The RPM compiler is always the one used.
+RUN rustc --version && cargo --version
+#
+# TODO(blocked): coraza-rs declares rust-version = "1.99" in its workspace
+# manifest, and RHEL 9.8 ships rust-toolset 1.92.0. cargo treats the minimum
+# supported version as a hard error, so the build below will stop with
+# "package requires rustc 1.99". Two further findings from testing the 1.92
+# toolchain against this source:
+#
+#   - Passing --ignore-rust-version is not sufficient on its own. The
+#     workspace denies the single_use_lifetimes lint, and that lint fires on
+#     1.92 where it does not on 1.99 (libperfusion/build.rs), failing the
+#     build script. Relaxing it needs an upstream change.
+#   - With both worked around, the source does compile cleanly on 1.92 and
+#     produces a structurally valid module. The gap is therefore version
+#     policy, not a missing language feature.
+#
+# CentOS Stream 9 already carries rust-toolset 1.99.1 alongside
+# rust-std-static-wasm32-wasip1, so a later RHEL 9.z should close this. Do not
+# paper over it with --ignore-rust-version: a toolchain downgrade here must be
+# validated with the upstream e2e and FTW suites, not by a successful compile.
+
+WORKDIR /usr/src/coraza-rs
+
+# Copy the whole workspace rather than selected crates. envoy-coraza depends
+# on path crates (coraza, libperfusion) and on the workspace Cargo.toml,
+# Cargo.lock and lint configuration; copying subdirectories risks silently
+# missing a path the build later needs.
+#
+# NOTE: coraza-rs/target is gitignored and routinely holds hundreds of MB of
+# local build output. It does not exist in CI, but it does exist in a
+# developer tree and would be sent as build context. Exclude it in a
+# repository-root .containerignore.
+COPY coraza-rs/ .
+
+COPY coraza-rs/LICENSE /licenses/LICENSE
+
+# Optional cargo features. Empty on purpose: the released module does not
+# embed CoreRuleSet, matching the upstream coraza-rs release artifact. Rules
+# reach the filter from the cluster at runtime. Setting this to
+# "envoy-coraza/embed-crs" additionally requires the pinned CRS tree to have
+# been fetched into the context beforehand (envoy-coraza/crs-fetch.sh, which
+# downloads and checksum-verifies the release named in envoy-coraza/crs.pin),
+# and raises the licensing question noted at the LICENSE copy below.
+ARG CARGO_FEATURES=
+
+# NOTE: the reference wasm-shim build uses --offline because it vendors its
+# dependencies into the repository. coraza-rs does not vendor, and its
+# Cargo.lock pins proxy-wasm to a git source
+# (Kuadrant/proxy-wasm-rust-sdk at a fixed rev), which is the hard case for
+# dependency prefetching. This build therefore still reaches the network.
+# Before enabling a network-isolated build, either vendor the tree with
+# "cargo vendor" and commit the matching .cargo/config.toml, or confirm the
+# build system can prefetch a git source.
+RUN if [ -n "${CARGO_FEATURES}" ]; then \
+      cargo build --locked --release --target "${TARGET}" -p envoy-coraza --features "${CARGO_FEATURES}"; \
+    else \
+      cargo build --locked --release --target "${TARGET}" -p envoy-coraza; \
+    fi
+
+# TODO(decide before release): WASI import stubs.
+#
+# Rust std for wasm32-wasip1 unconditionally imports a handful of filesystem
+# functions (fd_filestat_get, fd_readdir, path_create_directory,
+# path_filestat_get, path_unlink_file) because std::fs is reachable in the
+# binary, whether or not any code path calls it. Envoy releases before 1.40
+# implement only part of WASI Preview 1 and refuse to instantiate a module
+# with imports they do not recognise, so the module will not load on, for
+# example, the Envoy 1.39 shipped with Istio 1.31.
+#
+# Upstream solves this by linking the ENOSYS stubs in
+# envoy-coraza/wasi-stub.wat over the compiled module with Binaryen's wasm-as
+# and wasm-merge. That step is omitted here because Binaryen has no RPM in
+# UBI or RHEL, so adding it would mean a checksum-pinned upstream tarball and
+# would break this image's "distro packages only" property.
+#
+# Resolve one of:
+#   - confirm the target Envoy is 1.40 or newer, in which case the stubs are
+#     unnecessary and this note can be deleted; or
+#   - add Binaryen as a prefetched, checksum-pinned artifact and perform the
+#     merge here.
+#
+# Do not verify the outcome with "strings": the merge leaves the original
+# symbol names elsewhere in the binary, so it reports a false negative. Parse
+# the import section instead.
+
+USER 1001
+
+# ---------------------------------------------------------------------------
+# Run Stage
+# ---------------------------------------------------------------------------
+#
+# scratch, matching images/proxy-wasm. Besides being correct for a
+# single-artifact wasm image, it inherits no labels - so unlike the operator
+# image there is no risk of shipping UBI's cpe, url or description by
+# accident. Istio expects the module at /plugin.wasm when it pulls the image.
+FROM scratch
+
+# The product's CPE identifier. Must match the value recorded in the release
+# configuration exactly.
+#
+# Version-scoped: the 0.7 in it is the product stream, not the module
+# version. A new stream needs a new CPE here and in the release
+# configuration, changed together.
+#
+# el9 despite this image being FROM scratch: the CPE names the product and
+# the RHEL generation it is built for and shipped against, not the contents
+# of this particular layer.
+ARG WAF_CPE="cpe:/a:redhat:web_application_firewall:0.7::el9"
+# TODO(blocked on product): the customer-facing product URL.
+ARG WAF_URL=""
+# TODO: wire from the build pipeline; currently resolves to "unknown".
+ARG CORAZA_WASM_VERSION
+
+# description and io.k8s.description must carry the SAME text, as the UBI
+# images do, with summary holding the short form. Spelled out twice rather
+# than shared via an ARG so no --build-arg can substitute product copy. Keep
+# the two in sync by hand when editing either.
+LABEL cpe="${WAF_CPE}" \
+      url="${WAF_URL}" \
+      version="${CORAZA_WASM_VERSION:-unknown}" \
+      name="waf-1/waf-coraza-wasm" \
+      com.redhat.component="waf-coraza-wasm" \
+      distribution-scope="public" \
+      summary="Coraza WebAssembly module for Red Hat Web Application Firewall" \
+      description="Proxy-Wasm module that runs the Coraza Web Application Firewall engine inside Envoy, enforcing SecLang rules on Gateway API traffic, on behalf of the Red Hat Web Application Firewall operator." \
+      io.k8s.description="Proxy-Wasm module that runs the Coraza Web Application Firewall engine inside Envoy, enforcing SecLang rules on Gateway API traffic, on behalf of the Red Hat Web Application Firewall operator." \
+      io.k8s.display-name="Red Hat Web Application Firewall Coraza module" \
+      io.openshift.tags="waf,security,networking,wasm" \
+      vendor="Red Hat, Inc."
+
+# NOTE: this covers coraza-rs itself. If CARGO_FEATURES ever enables
+# embed-crs, the module also embeds CoreRuleSet content at build time, whose
+# licensing is an unresolved question - a second licence file may be required
+# here.
+COPY --from=builder /licenses/LICENSE /licenses/LICENSE
+
+COPY --from=builder \
+     /usr/src/coraza-rs/target/wasm32-wasip1/release/envoy_coraza.wasm \
+     /plugin.wasm
