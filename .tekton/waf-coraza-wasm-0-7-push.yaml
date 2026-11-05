@@ -25,6 +25,23 @@ spec:
     value: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-coraza-wasm:{{revision}}
   - name: dockerfile
     value: images/coraza-wasm/Containerfile
+  # Two package managers, because the build draws on both. Paths are
+  # relative to the repository root and differ because the inputs live in
+  # different places: the RPM lockfile sits beside the Containerfile it
+  # serves, while Cargo.lock is at the root of the source submodule.
+  #
+  #   rpm    images/coraza-wasm   reads rpms.lock.yaml
+  #   cargo  coraza-rs            reads Cargo.lock
+  #
+  # hermetic is deliberately NOT set yet. coraza-rs does not vendor, and its
+  # Cargo.lock pins proxy-wasm to a git source, which is the case most
+  # likely to defeat dependency prefetching - see the note above the cargo
+  # build step in the Containerfile. Prefetching while the build can still
+  # reach the network proves the inputs resolve without turning a working
+  # build into a failing one. Turn on network isolation once both
+  # prefetches are known good.
+  - name: prefetch-input
+    value: '[{"type": "rpm", "path": "images/coraza-wasm"}, {"type": "cargo", "path": "coraza-rs"}]'
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.
