@@ -8,6 +8,20 @@
 #
 # Regenerate after changing anything here, after moving the base image to a
 # new RHEL minor version, or after adding an architecture.
+#
+# images/operator/rpms.in.yaml is a copy of this file, and the lockfile
+# beside it a copy of this one's. The wasm-builder stage in
+# images/operator/Containerfile compiles the same envoy-coraza module from
+# the same base image with the same package set, so that the module can be
+# embedded into the manager binary.
+#
+# Nothing enforces that the two stay identical. When editing this file:
+#
+#   - make the same edit to images/operator/rpms.in.yaml, EXCEPT the
+#     stageName under context.containerfile, which differs by design
+#     ("builder" here, "wasm-builder" there);
+#   - regenerate both lockfiles;
+#   - build both images.
 
 contentOrigin:
   repofiles:

@@ -1,16 +1,174 @@
 # Red Hat WAF operator.
 #
-# Source: coraza-kubernetes-operator submodule at the repository root.
-# Build context must be the repository root, not this directory.
+# Source: coraza-kubernetes-operator and coraza-rs submodules at the
+# repository root. Build context must be the repository root, not this
+# directory.
 #
-# Base images come from registry.access.redhat.com rather than
+# The Go builder base comes from registry.access.redhat.com rather than
 # registry.redhat.io: the content is identical, the prefix is equally approved
-# for released content, and it needs no pull secret.
+# for released content, and it needs no pull secret. The other two stages
+# cannot follow that convention - the wasm builder needs entitled RHEL
+# content, and the runtime base is a PQC variant that is not mirrored on
+# registry.access.redhat.com. Both are noted on their own FROM lines.
 #
 # Unlike the wasm plugin (see tools/tinygo-builder), this is an ordinary Go
 # binary, so Red Hat's FIPS-enabled go-toolset is both usable and preferred.
 # go-toolset:1.26 provides Go 1.26.7; coraza-kubernetes-operator/go.mod
 # requires go 1.26.2.
+
+# ---------------------------------------------------------------------------
+# Wasm Build Stage
+# ---------------------------------------------------------------------------
+#
+# Builds the Coraza Proxy-Wasm module from coraza-rs so the Go stage below can
+# embed it. The operator does not pull the module from a registry at runtime:
+# internal/assets embeds plugin.wasm into the manager binary with //go:embed
+# and serves it to Gateways over its own asset route (/wasm/<digest>.wasm).
+# Without this stage the image ships the committed dev fixture - the 8-byte
+# empty wasm module - which loads but enforces nothing.
+#
+# This stage duplicates the build in images/coraza-wasm/Containerfile. That is
+# a deliberate exception to the "never fork build logic" rule, because a
+# Containerfile cannot include another one and the alternative - COPY --from a
+# separately built, digest-pinned coraza-wasm image - needs that image
+# published and digest-rewired first. The two will drift; keep them in sync by
+# hand, and prefer collapsing them onto COPY --from once the coraza-wasm image
+# is released. Only the manifest metadata below is NOT duplicated: it is read
+# out of the coraza-rs tree at build time rather than restated.
+#
+# registry.redhat.io, NOT registry.access.redhat.com, and this is a deliberate
+# deviation from the convention used by the rest of this file.
+#
+# rust-std-static-wasm32-wasip1 is the cross-compilation standard library for
+# the wasm target. Without it cargo cannot build for wasm32-wasip1 at all:
+# rustc will still *name* the target in --print target-list, but the build
+# fails for want of a precompiled std. The package is absent from the public
+# UBI repositories and is reachable only through the entitled RHEL AppStream
+# content available to the product pipeline.
+#
+# Consequence: adding this stage makes the operator image require an
+# entitlement to build, which it previously did not. A local build without one
+# fails at the dnf step.
+#
+# TODO: digest-pin this base. It is left as a tag here only because the digest
+# cannot be resolved without registry credentials; a tag reference is
+# invisible to digest-rewriting automation and will silently stop being
+# updated.
+FROM registry.redhat.io/ubi9/ubi:latest AS wasm-builder
+
+ARG TARGET=wasm32-wasip1
+
+# Package set is deliberately small: envoy-coraza pulls in no protobuf and no
+# OpenSSL. gcc remains because cargo needs a host linker driver for build
+# scripts, and git because the dependency set includes a git source (see the
+# fetch note below).
+#
+# This list is resolved into images/operator/rpms.lock.yaml, which the
+# pipeline prefetches so this step can run with no network. Change the list
+# and the lockfile must be regenerated from images/operator/rpms.in.yaml, or
+# the added package is simply absent and this step fails.
+#
+# The same list appears in images/coraza-wasm/Containerfile, with its own
+# copy of the lockfile. Nothing enforces that the two agree; keep them in
+# step by hand and regenerate both.
+#
+# rpm --verify after install catches a package that unpacked incorrectly
+# before the failure can surface as a confusing compiler error.
+RUN PKGS="rust-toolset rust-std-static-${TARGET} gcc git" \
+    && dnf install --nodocs --nobest --assumeyes $PKGS \
+    && rpm --verify --nogroup --nouser $PKGS \
+    && dnf -y clean all
+
+# Record the toolchain in the build log. coraza-rs ships a rust-toolchain.toml
+# pinning channel 1.99.1, but that file is a rustup directive and there is no
+# rustup here, so it is inert and cannot pull a different toolchain over the
+# network. The RPM compiler is always the one used. coraza-rs declares
+# rust-version = "1.92" in its workspace manifest, which RHEL 9.8's
+# rust-toolset satisfies.
+RUN rustc --version && cargo --version
+
+WORKDIR /usr/src/coraza-rs
+
+# Copy the whole workspace rather than selected crates. envoy-coraza depends
+# on path crates (coraza, libperfusion) and on the workspace Cargo.toml,
+# Cargo.lock and lint configuration; copying subdirectories risks silently
+# missing a path the build later needs.
+#
+# coraza-rs/target is gitignored and routinely holds several GB of local build
+# output. It does not exist in CI, but it does in a developer tree and would
+# be sent as build context, so it is excluded in the repository-root
+# .containerignore.
+COPY coraza-rs/ .
+
+# Optional cargo features. Empty on purpose: the embedded module does not
+# carry CoreRuleSet, matching the upstream coraza-rs release artifact. Rules
+# reach the filter from the cluster at runtime. Setting this to
+# "envoy-coraza/embed-crs" additionally requires the pinned CRS tree to have
+# been fetched into the context beforehand (envoy-coraza/crs-fetch.sh, which
+# downloads and checksum-verifies the release named in envoy-coraza/crs.pin),
+# raises an unresolved licensing question, and must be matched by WASM_CRS=1
+# and a real crs_version in the bundle step below.
+ARG CARGO_FEATURES=
+
+# No --offline flag, and none is wanted. coraza-rs does not vendor its
+# dependencies and its Cargo.lock pins proxy-wasm to a git source
+# (Kuadrant/proxy-wasm-rust-sdk at a fixed rev), which is the hard case for
+# dependency prefetching - but the build system does handle it: the cargo
+# prefetch collects the crates and rewrites coraza-rs/.cargo/config.toml to
+# point cargo at them, and the COPY above carries that rewritten file into
+# this stage. The pipeline then runs the build with no network at all, so an
+# unprefetched dependency fails here rather than being fetched quietly.
+#
+# Consequence: cargo must be left free to read that injected config. Adding
+# --offline or --frozen, or copying a .cargo/config.toml of our own over it,
+# would break the hermetic build.
+RUN if [ -n "${CARGO_FEATURES}" ]; then \
+      cargo build --locked --release --target "${TARGET}" -p envoy-coraza --features "${CARGO_FEATURES}"; \
+    else \
+      cargo build --locked --release --target "${TARGET}" -p envoy-coraza; \
+    fi
+
+# TODO(decide before release): WASI import stubs.
+#
+# Rust std for wasm32-wasip1 unconditionally imports a handful of filesystem
+# functions (fd_filestat_get, fd_readdir, path_create_directory,
+# path_filestat_get, path_unlink_file) because std::fs is reachable in the
+# binary, whether or not any code path calls it. Envoy releases before 1.40
+# implement only part of WASI Preview 1 and refuse to instantiate a module
+# with imports they do not recognise, so the module will not load on, for
+# example, the Envoy 1.39 shipped with Istio 1.31.
+#
+# Upstream solves this by linking the ENOSYS stubs in
+# envoy-coraza/wasi-stub.wat over the compiled module with Binaryen's wasm-as
+# and wasm-merge. That step is omitted here because Binaryen has no RPM in UBI
+# or RHEL, so adding it would mean a checksum-pinned upstream tarball and
+# would break this stage's "distro packages only" property. It is omitted in
+# images/coraza-wasm/Containerfile for the same reason; resolve both together.
+#
+# Resolve one of:
+#   - confirm the target Envoy is 1.40 or newer, in which case the stubs are
+#     unnecessary and this note can be deleted; or
+#   - add Binaryen as a prefetched, checksum-pinned artifact and perform the
+#     merge here.
+#
+# Do not verify the outcome with "strings": the merge leaves the original
+# symbol names elsewhere in the binary, so it reports a false negative. Parse
+# the import section instead.
+
+# Stage the module next to the metadata the operator's bundle manifest
+# records, so the Go stage needs nothing from the coraza-rs tree but /out.
+#
+# The script also reads the coraza and Proxy-Wasm SDK versions out of the
+# workspace instead of taking them as build arguments; see its header for why.
+# It lives in hack/ rather than inline here so it can be run against a plain
+# checkout - the cargo build above needs an entitled machine, this part does
+# not, and that is the only piece of this stage testable without one.
+COPY hack/stage-wasm-module.sh /usr/local/bin/stage-wasm-module.sh
+RUN stage-wasm-module.sh . "${TARGET}" /out
+
+# ---------------------------------------------------------------------------
+# Operator Build Stage
+# ---------------------------------------------------------------------------
 
 FROM registry.access.redhat.com/ubi9/go-toolset:1.26.10-1794208260@sha256:0e3894cea4fc077084245e8aa2befc8a7d91a4f60fbf850f0b5b555cbe62ee26 AS builder
 
@@ -30,6 +188,42 @@ RUN go mod download
 # subdirectories risks silently missing a path the build later needs.
 COPY coraza-kubernetes-operator/ .
 
+# Replace the committed dev fixture in internal/assets with the real module
+# before the Go build embeds it. Must come after the COPY above, which would
+# otherwise overwrite it with the fixture again.
+COPY --from=wasm-builder /out/ /tmp/wasm-bundle/
+
+# The coraza-rs commit this image was built from, recorded in the bundle
+# manifest as git_sha.
+#
+# TODO: wire this from the build pipeline; it currently resolves to "unknown".
+# It cannot be derived inside the build: .containerignore excludes .git, and a
+# submodule's own .git is a file pointing back into the parent repository.
+# Upstream's bundler rejects an empty value, so this is "unknown" rather than
+# empty - unlike the label defaults above, where empty is the correct way to
+# say "not known yet".
+ARG CORAZA_RS_GIT_SHA
+
+# Invoke the upstream bundler rather than writing plugin.manifest.yaml here.
+# It copies the module into internal/assets and rewrites the manifest with the
+# recomputed SHA-256, which is the digest the operator advertises to Envoy and
+# re-checks at startup (assets.Load + VerifyAll back the xds-assets ready
+# check). A hand-written manifest that disagrees with the bytes would fail
+# that check at runtime instead of here.
+#
+# WASM_CRS=0 records crs_version: none, matching the empty CARGO_FEATURES in
+# the wasm stage. Change both together or the manifest lies about the module.
+RUN set -eu; \
+    ASSETS_DIR=internal/assets \
+    WASM_MODULE=/tmp/wasm-bundle/plugin.wasm \
+    WASM_MODULE_NAME=envoy-coraza \
+    WASM_GIT_SHA="${CORAZA_RS_GIT_SHA:-unknown}" \
+    WASM_CORAZA_VERSION="$(cat /tmp/wasm-bundle/coraza_version)" \
+    WASM_PROXY_WASM_SDK_VERSION="$(cat /tmp/wasm-bundle/proxy_wasm_sdk_version)" \
+    WASM_CRS=0 \
+    hack/wasm.sh bundle \
+    && ASSETS_DIR=internal/assets hack/wasm.sh verify
+
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -45,14 +239,25 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
     go build -a -o manager -tags no_fs_access ./cmd/manager
 
 # ---------------------------------------------------------------------------
-
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1794186349@sha256:f26ef64172ea61f5ac5ba4be8c5c738bf8760b22b3e5148ce7b40f7308ab32db
+#
+# The PQC variant of ubi-minimal: same minimal image, built with the
+# post-quantum cryptography crypto-policy (DEFAULT:PQ) enabled, so TLS from
+# the operator negotiates post-quantum key exchange where the peer supports
+# it. Relevant here because the manager terminates TLS on two listeners - the
+# metrics server and the xDS/ECDS listener that serves Gateways.
+#
+# registry.redhat.io, not registry.access.redhat.com: unlike plain
+# ubi-minimal, this repository is not mirrored there. It requires terms
+# acceptance and a pull secret, which the product pipeline has.
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:9.8-1794221216@sha256:d638f3b49b79575329aacdae2739f954effe2467c12147711e73445c4fc97819
 
 # ---------------------------------------------------------------------------
 # Labels that MUST be overridden, not omitted
 # ---------------------------------------------------------------------------
-# ubi-minimal sets cpe, url, description, io.k8s.description and version on
-# its own. Leaving any of them unset does not produce an empty label - it
+# ubi-minimal-pqc sets cpe, url, description, io.k8s.description and version
+# on its own, with the same values plain ubi-minimal carries - the inherited
+# cpe below is unchanged by the PQC variant, so this whole block still
+# applies. Leaving any of them unset does not produce an empty label - it
 # silently ships UBI's value. The inherited cpe is the dangerous one:
 #
 #   cpe=cpe:/a:redhat:enterprise_linux:9::appstream

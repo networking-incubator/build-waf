@@ -6,6 +6,12 @@
 # from both, and an exclusion here fails the build at the COPY step.
 .git
 
+# Cargo build output. Gitignored, absent in CI, and several GB in a developer
+# tree - it would be sent as context on every build of images/operator and
+# images/coraza-wasm, both of which COPY coraza-rs/. Excluding it is safe:
+# cargo recreates it inside the builder stage.
+coraza-rs/target/
+
 .idea/
 .vscode/
 *.swp

@@ -12,6 +12,8 @@ metadata:
       ( "images/operator/***".pathChanged() ||
       "coraza-kubernetes-operator".pathChanged() ||
       "coraza-kubernetes-operator/***".pathChanged() ||
+      "coraza-rs".pathChanged() ||
+      "hack/stage-wasm-module.sh".pathChanged() ||
       ".tekton/waf-operator-0-7-***".pathChanged() )
   labels:
     appstudio.openshift.io/application: waf-0-7
@@ -44,12 +46,29 @@ spec:
     - linux/arm64
   - name: dockerfile
     value: images/operator/Containerfile
-  # Network-isolated build. Hermeto resolves the module graph from the
-  # submodule's go.mod up front; the build then runs with no network.
+  # Network-isolated build. Hermeto resolves every dependency up front; the
+  # build then runs with no network.
   - name: hermetic
     value: "true"
+  # Three package managers, because the image is built from three sources:
+  # the operator's Go module, the Rust workspace that produces the embedded
+  # wasm module, and the RPMs the Rust toolchain needs. Paths are relative to
+  # the repository root.
+  #
+  #   gomod   coraza-kubernetes-operator   reads go.mod
+  #   rpm     images/operator              reads rpms.lock.yaml
+  #   cargo   coraza-rs                    reads Cargo.lock
+  #
+  # Each prefetch input sits beside the thing it describes: the RPM lockfile
+  # next to the Containerfile that installs those packages, Cargo.lock and
+  # go.mod at the roots of their source submodules.
+  #
+  # images/operator/rpms.lock.yaml is a copy of images/coraza-wasm's, because
+  # the wasm-builder stage here installs the same package set from the same
+  # base image. Nothing enforces that they stay identical - see the header of
+  # images/operator/rpms.in.yaml for what to do when either changes.
   - name: prefetch-input
-    value: '{"type":"gomod","path":"coraza-kubernetes-operator"}'
+    value: '[{"type": "gomod", "path": "coraza-kubernetes-operator"}, {"type": "rpm", "path": "images/operator"}, {"type": "cargo", "path": "coraza-rs"}]'
   # Produces the source container the release policy requires.
   - name: build-source-image
     value: "true"
