@@ -46,6 +46,11 @@ spec:
   # useful.
   - name: hermetic
     value: "true"
+  # Produces the source container the release policy requires. Without it
+  # the source-build task is skipped, which fails both source_image.exists
+  # and tasks.required_tasks_found.
+  - name: build-source-image
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building container images from a Containerfile while maintaining trust after pipeline customization.
