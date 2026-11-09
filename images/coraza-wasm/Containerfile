@@ -26,11 +26,17 @@
 # Consequence: this image cannot be built without an entitlement, unlike the
 # other images in this repository. A local build will fail at the dnf step.
 #
-# TODO: digest-pin this base. It is left as a tag here only because the
-# digest cannot be resolved without registry credentials; a tag reference is
-# invisible to digest-rewriting automation and will silently stop being
-# updated.
-FROM registry.redhat.io/ubi9/ubi:latest AS builder
+# Pinned by tag and digest, matching the other images here. The digest is
+# what is actually resolved; the tag is there so a human can see which
+# version it is, and so digest-rewriting automation recognises the line.
+#
+# The pin matters more here than elsewhere. rpms.lock.yaml is resolved
+# against this image and records only the packages the install step *adds*,
+# leaving out anything already present. A floating tag can therefore move
+# the installed set out from under a lockfile that is still perfectly valid
+# on its face, and the build fails on a dependency that looks unrelated.
+# Change this and regenerate the lockfile in the same commit.
+FROM registry.redhat.io/ubi9/ubi:9.8-1794186345@sha256:87f66688da4e206d5a1877088626c542288a5ccd97898cf363b588d57817e6be AS builder
 
 ARG TARGET=wasm32-wasip1
 
