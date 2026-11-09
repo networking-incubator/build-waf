@@ -32,12 +32,23 @@ context:
     file: ./Containerfile
     stageName: builder
 
-# Single architecture, matching the Component. The module itself is
-# architecture independent - it is WebAssembly - but the toolchain that
-# compiles it is not, and the build runs on x86_64 only. Adding an
-# architecture here means regenerating the lockfile.
+# The module this produces is architecture independent - it is WebAssembly
+# - but the toolchain that compiles it is not, so the RPMs are resolved per
+# architecture.
+#
+# Listing an architecture here costs nothing but lockfile size and does not
+# require a machine of that architecture: the solve reads per-arch
+# repository metadata, and the base image is inspected through the matching
+# entry in its manifest list. Nothing of that architecture is executed.
+#
+# Note the Component still builds x86_64 only. Resolving aarch64 here is
+# what makes turning that on a pipeline change rather than a lockfile
+# regeneration under time pressure.
+#
+# Regenerate the lockfile after changing this list.
 arches:
   - x86_64
+  - aarch64
 
 # Exactly the set installed by the Containerfile, with TARGET expanded.
 # Deliberately smaller than comparable Rust wasm builds: envoy-coraza pulls

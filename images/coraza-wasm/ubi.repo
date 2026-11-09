@@ -11,8 +11,18 @@
 # $basearch is expanded when the repository is read, so one file serves every
 # architecture.
 #
-# Only the enabled repositories are renamed. The disabled debug and source
-# ones contribute nothing to the SBOM and are left as the image writes them.
+# Only the enabled repositories are renamed. The disabled ones contribute
+# nothing to the SBOM and are left as the image writes them.
+#
+# The baseos and appstream SOURCE repositories are enabled, which the image
+# ships disabled. Without them the lockfile resolves no source RPMs and the
+# generator warns "No sources found" for most packages. Both carry content
+# set names for the same reason the binary ones do.
+#
+# codeready-builder source stays disabled, matching the reference product
+# build. Enabling it would put source RPMs in the SBOM under a repository
+# id that has not been confirmed as a known content set, which is how the
+# rpm_repos.ids_known violation arose in the first place.
 [ubi-9-for-$basearch-baseos-rpms]
 name = Red Hat Universal Base Image 9 (RPMs) - BaseOS
 baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/baseos/os
@@ -27,10 +37,10 @@ enabled = 0
 gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
 gpgcheck = 1
 
-[ubi-9-baseos-source-rpms]
+[ubi-9-for-$basearch-baseos-source-rpms]
 name = Red Hat Universal Base Image 9 (Source RPMs) - BaseOS
 baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/baseos/source/SRPMS
-enabled = 0
+enabled = 1
 gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
 gpgcheck = 1
 
@@ -48,10 +58,10 @@ enabled = 0
 gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
 gpgcheck = 1
 
-[ubi-9-appstream-source-rpms]
+[ubi-9-for-$basearch-appstream-source-rpms]
 name = Red Hat Universal Base Image 9 (Source RPMs) - AppStream
 baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/appstream/source/SRPMS
-enabled = 0
+enabled = 1
 gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
 gpgcheck = 1
 
