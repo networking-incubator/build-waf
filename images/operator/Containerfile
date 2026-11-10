@@ -180,13 +180,23 @@ WORKDIR /opt/app-root/src
 # entirely from the prefetched dependency cache. Confirm whether the build
 # system exposes that cache automatically or whether its environment file has
 # to be sourced here first.
-COPY coraza-kubernetes-operator/go.mod go.mod
-COPY coraza-kubernetes-operator/go.sum go.sum
+COPY --chown=1001:0 coraza-kubernetes-operator/go.mod go.mod
+COPY --chown=1001:0 coraza-kubernetes-operator/go.sum go.sum
 RUN go mod download
 
 # Copy the whole module, matching the upstream Dockerfile. Copying selected
 # subdirectories risks silently missing a path the build later needs.
-COPY coraza-kubernetes-operator/ .
+#
+# --chown=1001:0 is required, not hygiene. go-toolset runs as UID 1001, but
+# COPY writes as root, so the copied tree is read-only to the build user.
+# Upstream never notices: it only ever reads this tree and writes the binary
+# into the WORKDIR, which the base image already owns. The bundle step below
+# writes *into* the tree - internal/assets/plugin.wasm - and fails with
+# "cp: cannot create regular file ...: Permission denied" without this.
+#
+# Group 0 with the base image's group permissions is the OpenShift
+# convention and keeps the tree writable whatever UID the builder runs as.
+COPY --chown=1001:0 coraza-kubernetes-operator/ .
 
 # Replace the committed dev fixture in internal/assets with the real module
 # before the Go build embeds it. Must come after the COPY above, which would
