@@ -13,6 +13,8 @@ metadata:
       ( "images/operator/***".pathChanged() ||
       "coraza-kubernetes-operator".pathChanged() ||
       "coraza-kubernetes-operator/***".pathChanged() ||
+      "coraza-rs".pathChanged() ||
+      "hack/stage-wasm-module.sh".pathChanged() ||
       ".tekton/waf-operator-0-7-***".pathChanged() )
   labels:
     appstudio.openshift.io/application: waf-0-7
@@ -35,15 +37,20 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
-    - linux/arm64
+    # - linux/arm64
   - name: dockerfile
     value: images/operator/Containerfile
   # Keep in step with the push pipeline, or a hermetic failure first appears
   # after merge instead of on the pull request.
   - name: hermetic
     value: "true"
+  # Must match the push pipeline. See the comment there.
+  #
+  #   gomod   coraza-kubernetes-operator   reads go.mod
+  #   rpm     images/operator              reads rpms.lock.yaml
+  #   cargo   coraza-rs                    reads Cargo.lock
   - name: prefetch-input
-    value: '{"type":"gomod","path":"coraza-kubernetes-operator"}'
+    value: '[{"type": "gomod", "path": "coraza-kubernetes-operator"}, {"type": "rpm", "path": "images/operator"}, {"type": "cargo", "path": "coraza-rs"}]'
   - name: build-source-image
     value: "true"
   pipelineSpec:

@@ -1,0 +1,87 @@
+# Section names are NOT the ones shipped in /etc/yum.repos.d/ubi.repo in the
+# base image, and must not be "corrected" back to them.
+#
+# The section name becomes the repoid in rpms.lock.yaml, which becomes
+# repository_id on every RPM in the SBOM, which the release policy checks
+# against the list of known Red Hat content sets. The names the image ships
+# - ubi-9-baseos-rpms, ubi-9-appstream-rpms - are not content set names, so
+# every RPM drawn from them is rejected with rpm_repos.ids_known.
+#
+# The content set form carries the architecture: ubi-9-for-x86_64-baseos-rpms.
+# $basearch is expanded when the repository is read, so one file serves every
+# architecture.
+#
+# Only the enabled repositories are renamed. The disabled ones contribute
+# nothing to the SBOM and are left as the image writes them.
+#
+# The baseos and appstream SOURCE repositories are enabled, which the image
+# ships disabled. Without them the lockfile resolves no source RPMs and the
+# generator warns "No sources found" for most packages. Both carry content
+# set names for the same reason the binary ones do.
+#
+# codeready-builder source stays disabled, matching the reference product
+# build. Enabling it would put source RPMs in the SBOM under a repository
+# id that has not been confirmed as a known content set, which is how the
+# rpm_repos.ids_known violation arose in the first place.
+[ubi-9-for-$basearch-baseos-rpms]
+name = Red Hat Universal Base Image 9 (RPMs) - BaseOS
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/baseos/os
+enabled = 1
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-baseos-debug-rpms]
+name = Red Hat Universal Base Image 9 (Debug RPMs) - BaseOS
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/baseos/debug
+enabled = 0
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-for-$basearch-baseos-source-rpms]
+name = Red Hat Universal Base Image 9 (Source RPMs) - BaseOS
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/baseos/source/SRPMS
+enabled = 1
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-for-$basearch-appstream-rpms]
+name = Red Hat Universal Base Image 9 (RPMs) - AppStream
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/appstream/os
+enabled = 1
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-appstream-debug-rpms]
+name = Red Hat Universal Base Image 9 (Debug RPMs) - AppStream
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/appstream/debug
+enabled = 0
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-for-$basearch-appstream-source-rpms]
+name = Red Hat Universal Base Image 9 (Source RPMs) - AppStream
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/appstream/source/SRPMS
+enabled = 1
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-for-$basearch-codeready-builder-rpms]
+name = Red Hat Universal Base Image 9 (RPMs) - CodeReady Builder
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/codeready-builder/os
+enabled = 1
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-codeready-builder-debug-rpms]
+name = Red Hat Universal Base Image 9 (Debug RPMs) - CodeReady Builder
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/codeready-builder/debug
+enabled = 0
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
+
+[ubi-9-codeready-builder-source-rpms]
+name = Red Hat Universal Base Image 9 (Source RPMs) - CodeReady Builder
+baseurl = https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/codeready-builder/source/SRPMS
+enabled = 0
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+gpgcheck = 1
