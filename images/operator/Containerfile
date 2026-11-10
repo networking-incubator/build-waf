@@ -4,12 +4,11 @@
 # repository root. Build context must be the repository root, not this
 # directory.
 #
-# The Go builder base comes from registry.access.redhat.com rather than
+# Base images come from registry.access.redhat.com rather than
 # registry.redhat.io: the content is identical, the prefix is equally approved
-# for released content, and it needs no pull secret. The other two stages
-# cannot follow that convention - the wasm builder needs entitled RHEL
-# content, and the runtime base is a PQC variant that is not mirrored on
-# registry.access.redhat.com. Both are noted on their own FROM lines.
+# for released content, and it needs no pull secret. The wasm stage below is
+# the one exception, because it needs entitled RHEL content; see the note on
+# its FROM line.
 #
 # Unlike the wasm plugin (see tools/tinygo-builder), this is an ordinary Go
 # binary, so Red Hat's FIPS-enabled go-toolset is both usable and preferred.
@@ -250,24 +249,21 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
 
 # ---------------------------------------------------------------------------
 #
-# The PQC variant of ubi-minimal: same minimal image, built with the
-# post-quantum cryptography crypto-policy (DEFAULT:PQ) enabled, so TLS from
-# the operator negotiates post-quantum key exchange where the peer supports
-# it. Relevant here because the manager terminates TLS on two listeners - the
-# metrics server and the xDS/ECDS listener that serves Gateways.
-#
-# registry.redhat.io, not registry.access.redhat.com: unlike plain
-# ubi-minimal, this repository is not mirrored there. It requires terms
-# acceptance and a pull secret, which the product pipeline has.
-FROM registry.redhat.io/ubi9/ubi-minimal-pqc:9.8-1794221216@sha256:d638f3b49b79575329aacdae2739f954effe2467c12147711e73445c4fc97819
+# Do not swap this for ubi9/ubi-minimal-pqc without reading the TODO item
+# first. That was tried on 2026-11-09 and reverted: the PQC repository is not
+# in the Red Hat Container Catalog, so deprecated-image-check cannot resolve
+# it and reports a warning, and test.no_test_warnings is enforced by the real
+# Conforma policy. Separately it is absent from registry.access.redhat.com,
+# so it needs terms acceptance and a pull secret - and the benefit is
+# unconfirmed, because the DEFAULT:PQ crypto-policy configures the system
+# OpenSSL while this manager is built CGO_ENABLED=0 and uses Go's own TLS.
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1794186349@sha256:f26ef64172ea61f5ac5ba4be8c5c738bf8760b22b3e5148ce7b40f7308ab32db
 
 # ---------------------------------------------------------------------------
 # Labels that MUST be overridden, not omitted
 # ---------------------------------------------------------------------------
-# ubi-minimal-pqc sets cpe, url, description, io.k8s.description and version
-# on its own, with the same values plain ubi-minimal carries - the inherited
-# cpe below is unchanged by the PQC variant, so this whole block still
-# applies. Leaving any of them unset does not produce an empty label - it
+# ubi-minimal sets cpe, url, description, io.k8s.description and version on
+# its own. Leaving any of them unset does not produce an empty label - it
 # silently ships UBI's value. The inherited cpe is the dangerous one:
 #
 #   cpe=cpe:/a:redhat:enterprise_linux:9::appstream
