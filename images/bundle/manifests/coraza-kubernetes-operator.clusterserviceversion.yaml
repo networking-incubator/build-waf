@@ -347,7 +347,7 @@ spec:
                       - --leader-elect=true
                       - --health-probe-bind-address=:8081
                       - --metrics-bind-address=:8443
-                      - --envoy-cluster-name=outbound|80||coraza-kubernetes-operator.coraza-system.svc.cluster.local
+                      - --envoy-cluster-name=outbound|18080||coraza-kubernetes-operator.coraza-system.svc.cluster.local
                       - --cache-gc-interval=5m
                       - --istio-revision=openshift-gateway
                       - --operator-name=coraza-kubernetes-operator
