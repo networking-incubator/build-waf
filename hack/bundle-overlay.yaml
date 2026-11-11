@@ -59,6 +59,3 @@ spec:
   relatedImages:
     - name: waf-operator
       image: ${OPERATOR_IMAGE}
-
-    - name: waf-proxy-wasm
-      image: ${WASM_IMAGE}
