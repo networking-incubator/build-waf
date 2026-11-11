@@ -72,7 +72,6 @@ bundle.generate: ## Regenerate images/bundle/ (VERSION, CHANNEL, OPERATOR_IMAGE,
 		--version "$(VERSION)" \
 		--channel "$(CHANNEL)" \
 		--operator-image "$(OPERATOR_IMAGE)" \
-		--wasm-image "$(WASM_IMAGE)" \
 		$(if $(REPLACES),--replaces "$(REPLACES)",)
 
 .PHONY: clean

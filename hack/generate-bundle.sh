@@ -35,7 +35,6 @@ trap 'rm -rf "${WORK_DIR}"' EXIT
 VERSION=""
 CHANNEL=""
 OPERATOR_IMAGE=""
-WASM_IMAGE=""
 REPLACES=""
 PACKAGE_NAME="coraza-kubernetes-operator"
 
@@ -46,7 +45,6 @@ while [[ $# -gt 0 ]]; do
         --version)        VERSION="$2"; shift 2 ;;
         --channel)        CHANNEL="$2"; shift 2 ;;
         --operator-image) OPERATOR_IMAGE="$2"; shift 2 ;;
-        --wasm-image)     WASM_IMAGE="$2"; shift 2 ;;
         --replaces)       REPLACES="$2"; shift 2 ;;
         *) die "unknown argument: $1" ;;
     esac
@@ -55,7 +53,6 @@ done
 [[ -n "${VERSION}" ]]        || die "--version is required"
 [[ -n "${CHANNEL}" ]]        || die "--channel is required"
 [[ -n "${OPERATOR_IMAGE}" ]] || die "--operator-image is required"
-[[ -n "${WASM_IMAGE}" ]]     || die "--wasm-image is required"
 
 for tool in python3 yq helm; do
     command -v "${tool}" >/dev/null || die "${tool} not found on PATH"
@@ -67,7 +64,7 @@ done
 
 # Bundles are never rebuilt when released, so a tag-based reference here ships
 # to customers and cannot be corrected later.
-for img in "${OPERATOR_IMAGE}" "${WASM_IMAGE}"; do
+for img in "${OPERATOR_IMAGE}"; do
     [[ "${img}" == *"@sha256:"* ]] || die "not digest-pinned: ${img}"
 done
 
@@ -109,7 +106,7 @@ CSV="${WORK_DIR}/bundle/manifests/${PACKAGE_NAME}.clusterserviceversion.yaml"
 # anything written in the overlay would otherwise end up inside a shipped
 # artifact - including substituted image pullspecs, since envsubst rewrites
 # comment text too. Keep the overlay well commented; none of it ships.
-OPERATOR_IMAGE="${OPERATOR_IMAGE}" WASM_IMAGE="${WASM_IMAGE}" \
+OPERATOR_IMAGE="${OPERATOR_IMAGE}" \
     envsubst < "${OVERLAY}" | yq '... comments=""' > "${WORK_DIR}/overlay.yaml"
 
 yq eval-all 'select(fi==0) * select(fi==1)' \
@@ -152,27 +149,6 @@ SA="${SA}" ROLE_RULES="${ROLE_RULES}" yq -i '
   }]
 ' "${CSV}"
 
-# Point the operator at the shipped plugin instead of its compiled-in
-# ghcr.io default. Handled here rather than in the overlay because appending
-# to a list is not a merge: we replace any existing flag, then add ours.
-#
-# NOTE: images/operator/Containerfile already bakes the same digest in as
-# CORAZA_DEFAULT_WASM_IMAGE, so this is belt and braces - the flag outranks
-# the environment variable and therefore wins in the OLM install path. Both
-# are re-pinned by the same automation off the same plugin build, so they
-# cannot drift. The flag is kept because it makes the dependency visible in
-# the shipped manifest; an Engine can still override per-resource via
-# spec.driver.wasm.image.
-WASM_IMAGE="${WASM_IMAGE}" yq -i '
-  .spec.install.spec.deployments[0].spec.template.spec.containers
-    |= map(
-        select(.name == "manager").args =
-          ((.args // []) | map(select(test("^--default-wasm-image=") | not)))
-          + ["--default-wasm-image=oci://" + strenv(WASM_IMAGE)]
-        // .
-      )
-' "${CSV}"
-
 # --------------------------------------------------------------------------
 # 3. Publish into images/bundle/ for commit
 # --------------------------------------------------------------------------
@@ -213,7 +189,6 @@ echo "Bundle written to ${OUT_DIR}"
 echo "  version  ${VERSION}"
 echo "  channel  ${CHANNEL}"
 echo "  operator ${OPERATOR_IMAGE}"
-echo "  wasm     ${WASM_IMAGE}"
 echo
 echo "Review the diff and commit. Remember that pullspecs above must point at"
 echo "registry.redhat.io before release; during onboarding quay.io is expected."
