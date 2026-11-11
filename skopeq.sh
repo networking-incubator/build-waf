@@ -1,1 +1,1 @@
-skopeo inspect --format '{{.Digest}}  {{index .Labels "version"}}-{{index .Labels "release"}}' docker://$1
+skopeo inspect --format '{{.Name}}:{{index .Labels "version"}}-{{index .Labels "release"}}@{{.Digest}}\n{{.Name}}  {{index .Labels "version"}}-{{index .Labels "release"}} {{.Digest}}' docker://$1
