@@ -15,6 +15,14 @@
 # go-toolset:1.26 provides Go 1.26.7; coraza-kubernetes-operator/go.mod
 # requires go 1.26.2.
 
+## Base Images ##
+ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/ubi9/ubi:9.9-1793830043@sha256:8b212f75a0e5a156ac28b1c5c030d2e8a07715254e19d522286118279399af81
+ARG IMAGE_GO_TOOLSET=registry.access.redhat.com/ubi9/go-toolset:1.27.3-1793884566@sha256:a2ad457dc7525635613d2355037239ca9bf4374ba3b59961d1cdaa4d5f1af7d8
+ARG IMAGE_BASE=registry.access.redhat.com/ubi9-minimal:9.9-1793829856@sha256:ecb40c7bdfa5b0bb71e978c98c7cf56ce38edf1f8fb3561078acbc4b13698c07
+# ~~~~~~~~~~~~ ##
+
+
+
 # ---------------------------------------------------------------------------
 # Wasm Build Stage
 # ---------------------------------------------------------------------------
@@ -53,7 +61,7 @@
 # cannot be resolved without registry credentials; a tag reference is
 # invisible to digest-rewriting automation and will silently stop being
 # updated.
-FROM registry.redhat.io/ubi9/ubi:latest AS wasm-builder
+FROM ${IMAGE_WASM_BUILDER} AS wasm-builder
 
 ARG TARGET=wasm32-wasip1
 
@@ -168,8 +176,7 @@ RUN stage-wasm-module.sh . "${TARGET}" /out
 # ---------------------------------------------------------------------------
 # Operator Build Stage
 # ---------------------------------------------------------------------------
-
-FROM registry.access.redhat.com/ubi9/go-toolset:1.26.10-1794208260@sha256:0e3894cea4fc077084245e8aa2befc8a7d91a4f60fbf850f0b5b555cbe62ee26 AS builder
+FROM ${IMAGE_GO_TOOLSET} AS builder
 
 WORKDIR /opt/app-root/src
 
@@ -257,8 +264,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
 # so it needs terms acceptance and a pull secret - and the benefit is
 # unconfirmed, because the DEFAULT:PQ crypto-policy configures the system
 # OpenSSL while this manager is built CGO_ENABLED=0 and uses Go's own TLS.
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1794186349@sha256:f26ef64172ea61f5ac5ba4be8c5c738bf8760b22b3e5148ce7b40f7308ab32db
-
+FROM ${IMAGE_BASE}
 # ---------------------------------------------------------------------------
 # Labels that MUST be overridden, not omitted
 # ---------------------------------------------------------------------------
