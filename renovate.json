@@ -1,0 +1,24 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "github>konflux-ci/mintmaker//config/renovate/renovate.json"
+    ],
+    "packageRules": [
+        {
+            "matchPackageNames": [ "*" ],
+            "groupName": "all dependencies"
+        }
+    ],
+    "dockerfile": {
+        "includePaths": ["images/**"]
+    },
+    "enabledManagers": [
+        "tekton",
+        "dockerfile",
+        "rpm-lockfile"
+    ],
+    "automerge": false,
+    "platformAutomerge": false,
+    "recreateWhen": "always",
+    "rebaseWhen": "behind-base-branch"
+}
