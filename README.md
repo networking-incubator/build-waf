@@ -25,6 +25,8 @@ images/                         shipped artifacts, one directory per image
 hack/
   generate-bundle.sh              regenerates images/bundle/ from upstream
   bundle-overlay.yaml             product additions merged into the CSV
+.tekton/                        CI PipelineRuns, one per component x event
+  pipelines/                      shared Pipeline definitions, see below
 coraza-kubernetes-operator/     submodule
 ```
 
@@ -53,6 +55,50 @@ build definition. The equivalent by hand:
 podman build -t waf-operator:dev   -f images/operator/Containerfile .
 podman build -t waf-bundle:dev     -f images/bundle/Containerfile .
 ```
+
+### CI pipelines (.tekton/)
+
+Each component has a pull-request and a push `PipelineRun`
+(`waf-operator-0-7-*.yaml`, `waf-operator-bundle-0-7-*.yaml`). Within a
+component, the pull-request and push variants run the exact same build
+pipeline - they differ only in the trigger (`on-cel-expression`), the output
+image tag, and a couple of params such as `image-expires-after`.
+
+That shared pipeline is not duplicated into each `PipelineRun`. It lives once
+as a standalone `Pipeline` resource under `.tekton/pipelines/`, and every
+`PipelineRun` references it with `pipelineRef` + the Tekton git resolver,
+which fetches the file from the same repository at the commit under test:
+
+```yaml
+pipelineRef:
+  resolver: git
+  params:
+  - name: url
+    value: '{{source_url}}'
+  - name: revision
+    value: '{{revision}}'
+  - name: pathInRepo
+    value: .tekton/pipelines/docker-build-multi-platform-oci-ta.yaml
+```
+
+There are two shared pipelines, matching the two Konflux build templates in
+use:
+
+- `docker-build-multi-platform-oci-ta.yaml` - multi-arch build, used by the
+  `waf-operator-0-7-*` PipelineRuns (the operator binary is
+  architecture-specific).
+- `docker-build-oci-ta.yaml` - single-arch build, used by the
+  `waf-operator-bundle-0-7-*` PipelineRuns (the bundle is `FROM scratch` and
+  not architecture-specific).
+
+When a pipeline needs to change (a new task, a bumped task version, a
+different task ordering), edit the one file under `.tekton/pipelines/` -
+never re-embed a `pipelineSpec` into a `PipelineRun`, or the two copies will
+drift again.
+
+The shared files stay under `.tekton/` on purpose: the dependency-update
+automation that bumps the pinned task-bundle digests scans that directory,
+and would silently stop updating them if they moved elsewhere.
 
 ### The plugin the operator defaults to
 
