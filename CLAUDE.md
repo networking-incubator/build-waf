@@ -29,11 +29,10 @@ the generated CSV, so the rule applies there too.
 repository. If something seems to need an upstream edit, say so rather than
 making it.
 
-**Never fork upstream build logic - invoke it.** `images/proxy-wasm` calls
-the upstream magefile, and `hack/generate-bundle.sh` calls the upstream
-bundle generator, in both cases deliberately. Copying that logic here looks
-simpler and then drifts silently, and the resulting failures appear at
-runtime rather than at build time.
+**Never fork upstream build logic - invoke it.** `hack/generate-bundle.sh`
+calls the upstream bundle generator deliberately, rather than reimplementing
+it here. Copying that logic here looks simpler and then drifts silently, and
+the resulting failures appear at runtime rather than at build time.
 
 **The Makefile is a launcher, not a build definition.** It may only invoke
 the same Containerfiles CI builds, with the same context and no extra build
@@ -43,18 +42,6 @@ the pipeline, never only in the Makefile.
 **Build targets must not touch submodule state.** Submodule checkout is the
 developer's to control via `make submodules`. An implicit update changes
 which upstream commit is being built, or resets work in progress.
-
-**Do not bump the wasm toolchain versions.** Go and TinyGo are pinned
-together in `tools/tinygo-builder/Containerfile`, which documents exactly
-why each substitution fails. A version change must be validated with the
-upstream e2e and ftw suites, not by a successful compile.
-
-If you do change a version, change
-`tools/tinygo-builder/artifacts.lock.yaml` in the same commit. It repeats
-the version and checksum so the tarballs can be prefetched for a
-network-isolated build. The two cannot silently diverge - the lockfile's
-file names carry no version, so a mismatch fails the Containerfile's own
-`sha256sum -c` - but the failure is much easier to read if you expect it.
 
 **The bundle under `images/bundle/` is generated and committed.** Regenerate
 it with `make bundle.generate`; never hand-edit the CSV, and never add a
@@ -84,7 +71,7 @@ failure surfaces late or not at all.
 Do not report a change as working without building it.
 
 ```bash
-make images                      # all four, from the repository root
+make images                      # both, from the repository root
 make bundle.generate VERSION=... CHANNEL=... OPERATOR_IMAGE=... WASM_IMAGE=...
 ```
 
@@ -95,7 +82,6 @@ validate anything that reads from a submodule, confirm the tree matches
 what CI would see:
 
 ```bash
-git -C coraza-proxy-wasm           status --short --ignored
 git -C coraza-kubernetes-operator  status --short --ignored
 ```
 
