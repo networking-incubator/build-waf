@@ -1,9 +1,6 @@
 [submodule "coraza-kubernetes-operator"]
 	path = coraza-kubernetes-operator
 	url = https://github.com/networking-incubator/coraza-kubernetes-operator
-[submodule "coraza-proxy-wasm"]
-	path = coraza-proxy-wasm
-	url = https://github.com/networking-incubator/coraza-proxy-wasm.git
 [submodule "coraza-rs"]
 	path = coraza-rs
 	url = https://github.com/networking-incubator/coraza-rs

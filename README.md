@@ -13,24 +13,19 @@ image labels, `relatedImages`, OLM channel naming - lives here.
 Upstream projects:
 
 - [coraza-kubernetes-operator](https://github.com/networking-incubator/coraza-kubernetes-operator)
-- [coraza-proxy-wasm](https://github.com/networking-incubator/coraza-proxy-wasm)
 
 ## Structure
 
 ```
 images/                         shipped artifacts, one directory per image
   operator/Containerfile          the operator
-  proxy-wasm/Containerfile        the Coraza WebAssembly plugin
   bundle/Containerfile            OLM bundle
     manifests/ metadata/ tests/     generated and committed; see hack/
   catalog/                        FBC fragments, one dir per OCP version
-tools/                          build-time only, never shipped
-  tinygo-builder/Containerfile    Go + TinyGo toolchain for the plugin
 hack/
   generate-bundle.sh              regenerates images/bundle/ from upstream
   bundle-overlay.yaml             product additions merged into the CSV
 coraza-kubernetes-operator/     submodule
-coraza-proxy-wasm/              submodule
 ```
 
 `images/` versus `tools/` is the "does this get released?" line. Only
@@ -46,7 +41,7 @@ directory, because the Containerfiles copy from the submodules.
 
 ```bash
 make submodules
-make images             # all four, in dependency order
+make images             # both, in dependency order
 make help               # individual targets
 ```
 
@@ -55,15 +50,9 @@ same context and no extra build arguments. It is a convenience wrapper, not a
 build definition. The equivalent by hand:
 
 ```bash
-podman build -t localhost/waf-tinygo-builder:0.34.0 -f tools/tinygo-builder/Containerfile .
 podman build -t waf-operator:dev   -f images/operator/Containerfile .
-podman build -t waf-proxy-wasm:dev -f images/proxy-wasm/Containerfile .
 podman build -t waf-bundle:dev     -f images/bundle/Containerfile .
 ```
-
-`image.proxy-wasm` depends on `image.tinygo-builder`, and the builder must be
-tagged exactly as the `BUILDER_IMAGE` default in
-`images/proxy-wasm/Containerfile` or the plugin build will not find it.
 
 ### The plugin the operator defaults to
 
@@ -111,9 +100,7 @@ digest-pinned, and cross-checks that the OLM labels in
 
 | Artifact | State |
 |---|---|
-| `tools/tinygo-builder` | builds; compiles the plugin |
 | `images/operator` | builds; empty `url`, `version` |
-| `images/proxy-wasm` | builds; wasm import patch verified |
 | `images/bundle` | builds; **generated with placeholder digests, do not ship** |
 | `images/catalog` | not started |
 | `.tekton/` | not started |
@@ -132,26 +119,18 @@ digest-pinned, and cross-checks that the OLM labels in
       `*-pre-ga-*`.
 - [x] `.tekton/` pipeline definitions, with path-based trigger filters so the
       components do not trigger each other in a rebuild loop.
-- [ ] Wire the version build args. All three images currently label
+- [ ] Wire the version build args. Both images currently label
       `version=unknown`.
-- [x] Enable network-isolated builds and dependency prefetching, on all
-      four images.
-      The Go module paths are inside the submodules, so the prefetch input
-      names the submodule directory. One path is enough for the plugin even
-      though it is a Go *workspace* - the prefetch reads `go.work` and picks
-      up the `magefiles` module and `mage` itself.
-      The toolchain image needs no package manager: its two tarballs are
-      ordinary file downloads, prefetched from
-      `tools/tinygo-builder/artifacts.lock.yaml`, which pins each by URL and
-      checksum.
+- [x] Enable network-isolated builds and dependency prefetching, on both
+      images.
+      The Go module paths are inside the submodule, so the prefetch input
+      names the submodule directory.
 - [ ] Regenerate `images/bundle/` against real digests before any release.
 - [ ] Verify each `features.operators.openshift.io/*` value in
       `hack/bundle-overlay.yaml`. They are placeholders and are shown to
       users as OperatorHub filters.
 - [ ] Set `--replaces` for the upgrade graph, needed from 0.8 onward.
-- [ ] Multi-arch build platforms for the operator. The plugin is
-      architecture independent; this affects the operator and the builder
-      image only.
+- [ ] Multi-arch build platforms for the operator.
 - [ ] Fill in the `url` label once the product value is known. It is
       deliberately empty today - see below. `cpe` is set.
 
@@ -167,17 +146,8 @@ digest-pinned, and cross-checks that the OLM labels in
   they do on the UBI images, with `summary` holding the short form. They are
   duplicated as literals deliberately, so no `--build-arg` can substitute
   product copy.
-- **The wasm toolchain versions are locked together**, at Go 1.23.12 and
-  TinyGo 0.34.0. `ubi9/go-toolset` cannot target wasm at all, and TinyGo
-  cannot be bumped. The full reasoning, with the exact errors, is in
-  `tools/tinygo-builder/Containerfile`.
 - **The bundle is generated, then committed.** Digest-rewriting automation
   can only update pullspecs that exist in a file in git, so the CSV has to
   live in the repository rather than being produced during the build.
 - **Bundles must be single-arch.** A bundle must be a single OCI image
   manifest, never an image index.
-- **The plugin build invokes the upstream magefile** rather than
-  reimplementing its TinyGo invocation. The magefile also rewrites specific
-  wasm imports after compiling; copying that logic here would drift silently,
-  and the failure mode is a plugin that builds cleanly and misbehaves at
-  runtime.

@@ -4,23 +4,13 @@
 # builds, with the same context. It is not a build definition. If a build
 # needs a new argument, it belongs in the Containerfile or in the pipeline,
 # never only here - otherwise local builds and CI silently diverge.
-#
-# One documented exception: image.proxy-wasm passes BUILDER_IMAGE, so the
-# plugin is compiled by the toolchain image you just built locally instead of
-# pulling the published one. CI sets the same argument via the Containerfile
-# default, which digest-rewriting automation keeps current.
 
 CONTAINER_TOOL ?= podman
 
 TAG ?= dev
 
-# Must match the ARG BUILDER_IMAGE default in images/proxy-wasm/Containerfile,
-# so that building the plugin locally needs no extra arguments.
-TINYGO_BUILDER_IMAGE ?= localhost/waf-tinygo-builder:0.34.0
-
-OPERATOR_TAG   ?= localhost/waf-operator:$(TAG)
-PROXY_WASM_TAG ?= localhost/waf-proxy-wasm:$(TAG)
-BUNDLE_TAG     ?= localhost/waf-operator-bundle:$(TAG)
+OPERATOR_TAG ?= localhost/waf-operator:$(TAG)
+BUNDLE_TAG   ?= localhost/waf-operator-bundle:$(TAG)
 
 # The bundle image is built from committed manifests rather than generated at
 # build time, so the CSV is a real prerequisite.
@@ -46,21 +36,11 @@ submodules: ## Check out or update the upstream submodules
 	git submodule update --init --recursive
 
 .PHONY: images
-images: image.operator image.proxy-wasm image.bundle ## Build every image
-
-.PHONY: image.tinygo-builder
-image.tinygo-builder: ## Build the Go + TinyGo toolchain (build-time only, not shipped)
-	$(CONTAINER_TOOL) build -t $(TINYGO_BUILDER_IMAGE) -f tools/tinygo-builder/Containerfile .
+images: image.operator image.bundle ## Build every image
 
 .PHONY: image.operator
 image.operator: ## Build the operator image
 	$(CONTAINER_TOOL) build -t $(OPERATOR_TAG) -f images/operator/Containerfile .
-
-.PHONY: image.proxy-wasm
-image.proxy-wasm: image.tinygo-builder ## Build the Coraza WebAssembly plugin image
-	$(CONTAINER_TOOL) build -t $(PROXY_WASM_TAG) \
-		--build-arg BUILDER_IMAGE=$(TINYGO_BUILDER_IMAGE) \
-		-f images/proxy-wasm/Containerfile .
 
 .PHONY: image.bundle
 image.bundle: $(BUNDLE_CSV) ## Build the OLM bundle image from the committed manifests
@@ -77,4 +57,4 @@ bundle.generate: ## Regenerate images/bundle/ (VERSION, CHANNEL, OPERATOR_IMAGE,
 .PHONY: clean
 clean: ## Remove locally built images
 	-$(CONTAINER_TOOL) rmi -f \
-		$(OPERATOR_TAG) $(PROXY_WASM_TAG) $(BUNDLE_TAG) $(TINYGO_BUILDER_IMAGE)
+		$(OPERATOR_TAG) $(BUNDLE_TAG)
