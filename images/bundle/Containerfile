@@ -33,9 +33,9 @@ LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1 \
       operators.operatorframework.io.bundle.channels.v1=dev-preview \
       operators.operatorframework.io.bundle.channel.default.v1=dev-preview
 
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------- #
 # Red Hat product labels
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------- #
 # The product's CPE identifier. Must match the value recorded in the release
 # configuration exactly.
 #
@@ -44,9 +44,15 @@ LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1 \
 # configuration, changed together.
 ARG WAF_CPE="cpe:/a:redhat:web_application_firewall:0.7::el9"
 # TODO(blocked on product): the customer-facing product URL.
-ARG WAF_URL=""
+ARG WAF_URL="https://networking-incubator.github.io/coraza-kubernetes-operator/latest/"
 # TODO: wire from the build pipeline; currently resolves to "unknown".
-ARG WAF_BUNDLE_VERSION
+ARG WAF_BUNDLE_VERSION="0.7.0"
+# The per-build release number, distinct
+# from version: it increments each time the same version is rebuilt.
+ARG WAF_BUNDLE_RELEASE="1"
+#
+# ---------------------------------------------------------------------------- #
+# ---------------------------------------------------------------------------- #
 
 # description and io.k8s.description must carry the SAME text, as the UBI
 # images do, with summary holding the short form. Spelled out twice rather
@@ -54,7 +60,9 @@ ARG WAF_BUNDLE_VERSION
 # the two in sync by hand when editing either.
 LABEL cpe="${WAF_CPE}" \
       url="${WAF_URL}" \
-      version="${WAF_BUNDLE_VERSION:-unknown}" \
+      version="${WAF_BUNDLE_VERSION}" \
+      release="${WAF_BUNDLE_RELEASE}" \
+      distribution-scope="public" \
       name="waf-1/waf-operator-bundle" \
       com.redhat.component="waf-operator-bundle" \
       summary="OLM bundle for Red Hat Web Application Firewall" \
