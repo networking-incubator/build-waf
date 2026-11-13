@@ -283,6 +283,10 @@ FROM ${IMAGE_BASE}
 # overrides the inherited one, so we ship no false metadata, and the policy
 # check fails loudly on the missing value instead of passing a wrong one.
 #
+
+# ---------------------------------------------------------------------------- #
+# Red Hat product labels
+# ---------------------------------------------------------------------------- #
 # The product's CPE identifier. It must match the value recorded in the
 # release configuration exactly.
 #
@@ -291,34 +295,15 @@ FROM ${IMAGE_BASE}
 # changed together.
 ARG WAF_CPE="cpe:/a:redhat:web_application_firewall:0.7::el9"
 # TODO(blocked on product): the customer-facing product URL.
-ARG WAF_URL=""
+ARG WAF_URL="https://networking-incubator.github.io/coraza-kubernetes-operator/latest/"
 # TODO: wire this from the build pipeline; it currently resolves to "unknown".
-ARG CORAZA_KUBERNETES_OPERATOR_VERSION
-
-# The productized wasm plugin this operator defaults to when an Engine omits
-# spec.driver.wasm.image.
+ARG WAF_OPERATOR_VERSION="0.7.0"
+# The per-build release number, distinct
+# from version: it increments each time the same version is rebuilt.
+ARG WAF_OPERATOR_RELEASE="1"
 #
-# Upstream compiles in a ghcr.io reference. Shipping that would make the
-# product reach outside the product's own registry on a default install, and
-# in a disconnected cluster it would simply fail. Pinning it here locks the
-# operator image to the plugin build it was released with.
-#
-# This is deliberately an image-level default, not a hardcoded constant: the
-# upstream precedence is per-Engine spec > --default-wasm-image >
-# CORAZA_DEFAULT_WASM_IMAGE > compiled-in default, so a cluster admin can
-# still override it. The bundle's ClusterServiceVersion passes the flag
-# explicitly and therefore wins in the OLM install path; this value is what
-# the image resolves to on its own, which is what any other install path and
-# any manual run of the image gets.
-#
-# Digest-pinned so digest-rewriting automation keeps it current. The plugin
-# build raises a pull request against this line; a tag would be invisible to
-# it and would silently stop being updated. The oci:// scheme is added below
-# rather than stored in the value, so the pullspec here is matchable.
-ARG DEFAULT_WASM_IMAGE=quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-proxy-wasm@sha256:858b61f15791582e830a8a4cc3c8ae3c7de9fdd62fe27e150e69d5e91092a3e2
-
-ENV CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unknown} \
-    CORAZA_DEFAULT_WASM_IMAGE="oci://${DEFAULT_WASM_IMAGE}"
+# ---------------------------------------------------------------------------- #
+# ---------------------------------------------------------------------------- #
 
 # description and io.k8s.description must carry the SAME text - that is what
 # the UBI images themselves do, with summary holding the short form. They are
@@ -326,7 +311,9 @@ ENV CORAZA_KUBERNETES_OPERATOR_VERSION=${CORAZA_KUBERNETES_OPERATOR_VERSION:-unk
 # substitute product copy. Keep the two in sync by hand when editing either.
 LABEL cpe="${WAF_CPE}" \
       url="${WAF_URL}" \
-      version="${CORAZA_KUBERNETES_OPERATOR_VERSION}" \
+      version="${WAF_OPERATOR_VERSION}" \
+      release="${WAF_OPERATOR_RELEASE}" \
+      distribution-scope="public" \
       name="waf-1/waf-rhel9-operator" \
       com.redhat.component="waf-operator" \
       summary="Red Hat Web Application Firewall operator" \
