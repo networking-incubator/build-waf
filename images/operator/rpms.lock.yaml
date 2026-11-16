@@ -599,34 +599,6 @@ arches:
     name: elfutils-debuginfod-client
     evr: 0.195-1.el9
     sourcerpm: elfutils-0.195-1.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/g/glibc-2.34-290.el9_9.aarch64.rpm
-    repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 1814067
-    checksum: sha256:4f0c28fec15116b51cc2d5302dfac4baf044e650761de71756d21372db1074a4
-    name: glibc
-    evr: 2.34-290.el9_9
-    sourcerpm: glibc-2.34-290.el9_9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/g/glibc-common-2.34-290.el9_9.aarch64.rpm
-    repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 313142
-    checksum: sha256:b54737ad2b1acfb03c196f8095b620590cdc955694606bdabe3b3c1dbf2462d5
-    name: glibc-common
-    evr: 2.34-290.el9_9
-    sourcerpm: glibc-2.34-290.el9_9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/g/glibc-langpack-en-2.34-290.el9_9.aarch64.rpm
-    repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 685072
-    checksum: sha256:73282507fb16a16400fd445e9be5b3e66f179d5964217db0452139db938fff3c
-    name: glibc-langpack-en
-    evr: 2.34-290.el9_9
-    sourcerpm: glibc-2.34-290.el9_9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/g/glibc-minimal-langpack-2.34-290.el9_9.aarch64.rpm
-    repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 31149
-    checksum: sha256:a243c78096637de87c0fd69ac5f86a748b5cd0f111be16abb71e960b53c19fbd
-    name: glibc-minimal-langpack
-    evr: 2.34-290.el9_9
-    sourcerpm: glibc-2.34-290.el9_9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/g/groff-base-1.22.4-10.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 1088949
@@ -669,20 +641,6 @@ arches:
     name: libfido2
     evr: 1.13.0-2.el9
     sourcerpm: libfido2-1.13.0-2.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libgcc-11.5.0-17.el9_9.aarch64.rpm
-    repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 83989
-    checksum: sha256:d4f1741ec7ff09f7a978794e08f8f4801f8ddb3ba7e2fde182972e3eb71ca588
-    name: libgcc
-    evr: 11.5.0-17.el9_9
-    sourcerpm: gcc-11.5.0-17.el9_9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libgomp-11.5.0-17.el9_9.aarch64.rpm
-    repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 264924
-    checksum: sha256:03aa94d879a0f10924840a6a130015e1daf69a4a10a0cc58313476f3f31eba09
-    name: libgomp
-    evr: 11.5.0-17.el9_9
-    sourcerpm: gcc-11.5.0-17.el9_9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libpkgconf-1.7.3-10.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 38310
@@ -1122,6 +1080,20 @@ arches:
     name: git-core-doc
     evr: 2.52.0-1.el9
     sourcerpm: git-2.52.0-1.el9.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/g/glibc-devel-2.34-290.el9_9.x86_64.rpm
+    repoid: ubi-9-for-x86_64-appstream-rpms
+    size: 47017
+    checksum: sha256:0a709e953cf9f7558e879e0b0094311c221b7a5f65c91474ed80dc5879442457
+    name: glibc-devel
+    evr: 2.34-290.el9_9
+    sourcerpm: glibc-2.34-290.el9_9.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/g/glibc-headers-2.34-290.el9_9.x86_64.rpm
+    repoid: ubi-9-for-x86_64-appstream-rpms
+    size: 567423
+    checksum: sha256:40589cc57b4a60d2eb35215b90b0e9466cbaf0b9d00f8474c7d6c0e267a84d77
+    name: glibc-headers
+    evr: 2.34-290.el9_9
+    sourcerpm: glibc-2.34-290.el9_9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-741.22.1.el9_9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 2768777
@@ -1689,20 +1661,6 @@ arches:
     name: libfido2
     evr: 1.13.0-2.el9
     sourcerpm: libfido2-1.13.0-2.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libgcc-11.5.0-17.el9_9.x86_64.rpm
-    repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 90062
-    checksum: sha256:079238256f7c5cdc96d4554e499b7a70067ce67162fc102527791e6109000337
-    name: libgcc
-    evr: 11.5.0-17.el9_9
-    sourcerpm: gcc-11.5.0-17.el9_9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libgomp-11.5.0-17.el9_9.x86_64.rpm
-    repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 266568
-    checksum: sha256:ff69082099f6544d80c3e4dc1eb84c15f90fc513f37501a5ae1ee7d96515915e
-    name: libgomp
-    evr: 11.5.0-17.el9_9
-    sourcerpm: gcc-11.5.0-17.el9_9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libpkgconf-1.7.3-10.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 38387
@@ -1759,20 +1717,6 @@ arches:
     name: pkgconf-pkg-config
     evr: 1.7.3-10.el9
     sourcerpm: pkgconf-1.7.3-10.el9.src.rpm
-  - url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/appstream/os/Packages/g/glibc-devel-2.34-285.el9_9.x86_64.rpm
-    repoid: rhel-9-for-x86_64-appstream-rpms
-    size: 46422
-    checksum: sha256:15043c3d3833bc1be8de9f5245ac1ff6344414b2c4783afa254ff83fbf011a56
-    name: glibc-devel
-    evr: 2.34-285.el9_9
-    sourcerpm: glibc-2.34-285.el9_9.src.rpm
-  - url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/appstream/os/Packages/g/glibc-headers-2.34-285.el9_9.x86_64.rpm
-    repoid: rhel-9-for-x86_64-appstream-rpms
-    size: 566800
-    checksum: sha256:e7c0114ac7c5afc9fda18f15a3a3f6506b9e052905f58a82f2863fbcfe4a372e
-    name: glibc-headers
-    evr: 2.34-285.el9_9
-    sourcerpm: glibc-2.34-285.el9_9.src.rpm
   - url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/appstream/os/Packages/r/rust-std-static-wasm32-wasip1-1.97.1-4.el9_9.noarch.rpm
     repoid: rhel-9-for-x86_64-appstream-rpms
     size: 32287143
@@ -2045,6 +1989,12 @@ arches:
     checksum: sha256:2b68dc5e93cbbf5151bfb7ecc436571c6f3cff0fee5d671bb41251e281e108c5
     name: gcc
     evr: 11.5.0-17.el9_9
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/source/SRPMS/Packages/g/glibc-2.34-290.el9_9.src.rpm
+    repoid: ubi-9-for-x86_64-baseos-source-rpms
+    size: 20524270
+    checksum: sha256:341a60277f0acd08c83da9051a513124280d617425e7e68747d27cb85ac285aa
+    name: glibc
+    evr: 2.34-290.el9_9
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/source/SRPMS/Packages/g/groff-1.22.4-10.el9.src.rpm
     repoid: ubi-9-for-x86_64-baseos-source-rpms
     size: 4138121
