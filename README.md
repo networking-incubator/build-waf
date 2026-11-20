@@ -10,9 +10,13 @@ the CI pipeline definitions.
 Upstream is never modified. Everything product specific - UBI base images,
 image labels, `relatedImages`, OLM channel naming - lives here.
 
+Images are built by Konflux, not locally; this repository holds the build
+definitions, not a standalone build.
+
 Upstream projects:
 
 - [coraza-kubernetes-operator](https://github.com/networking-incubator/coraza-kubernetes-operator)
+- [coraza-rs](https://github.com/networking-incubator/coraza-rs)
 
 ## Structure
 
@@ -28,6 +32,7 @@ hack/
 .tekton/                        CI PipelineRuns, one per component x event
   pipelines/                      shared Pipeline definitions, see below
 coraza-kubernetes-operator/     submodule
+coraza-rs/                      submodule
 ```
 
 `images/` versus `tools/` is the "does this get released?" line. Only
@@ -36,149 +41,15 @@ coraza-kubernetes-operator/     submodule
 Directories are named after the artifact they produce, not after the upstream
 repository they build from. Upstream names belong to the submodules.
 
-## Building
+## CI pipelines (.tekton/)
 
-All builds take the **repository root** as context, never the image
-directory, because the Containerfiles copy from the submodules.
-
-```bash
-make submodules
-make images             # both, in dependency order
-make help               # individual targets
-```
-
-The Makefile only launches the same Containerfiles that CI builds, with the
-same context and no extra build arguments. It is a convenience wrapper, not a
-build definition. The equivalent by hand:
-
-```bash
-podman build -t waf-operator:dev   -f images/operator/Containerfile .
-podman build -t waf-bundle:dev     -f images/bundle/Containerfile .
-```
-
-### CI pipelines (.tekton/)
-
-Each component has a pull-request and a push `PipelineRun`
-(`waf-operator-0-7-*.yaml`, `waf-operator-bundle-0-7-*.yaml`). Within a
-component, the pull-request and push variants run the exact same build
-pipeline - they differ only in the trigger (`on-cel-expression`), the output
-image tag, and a couple of params such as `image-expires-after`.
-
-That shared pipeline is not duplicated into each `PipelineRun`. It lives once
-as a standalone `Pipeline` resource under `.tekton/pipelines/`, and every
-`PipelineRun` references it with `pipelineRef` + the Tekton git resolver,
-which fetches the file from the same repository at the commit under test:
-
-```yaml
-pipelineRef:
-  resolver: git
-  params:
-  - name: url
-    value: '{{source_url}}'
-  - name: revision
-    value: '{{revision}}'
-  - name: pathInRepo
-    value: .tekton/pipelines/docker-build-multi-platform-oci-ta.yaml
-```
-
-There are two shared pipelines, matching the two Konflux build templates in
-use:
-
-- `docker-build-multi-platform-oci-ta.yaml` - multi-arch build, used by the
-  `waf-operator-0-7-*` PipelineRuns (the operator binary is
-  architecture-specific).
-- `docker-build-oci-ta.yaml` - single-arch build, used by the
-  `waf-operator-bundle-0-7-*` PipelineRuns (the bundle is `FROM scratch` and
-  not architecture-specific).
-
-When a pipeline needs to change (a new task, a bumped task version, a
-different task ordering), edit the one file under `.tekton/pipelines/` -
-never re-embed a `pipelineSpec` into a `PipelineRun`, or the two copies will
-drift again.
-
-The shared files stay under `.tekton/` on purpose: the dependency-update
-automation that bumps the pinned task-bundle digests scans that directory,
-and would silently stop updating them if they moved elsewhere.
-
-### The plugin the operator defaults to
-
-Upstream compiles in a `ghcr.io` reference to the plugin, used when an Engine
-omits `spec.driver.wasm.image`. `images/operator/Containerfile` replaces it
-by baking `CORAZA_DEFAULT_WASM_IMAGE` into the image from the digest-pinned
-`DEFAULT_WASM_IMAGE` build argument, so a default install never reaches
-outside the product's own registry and works in a disconnected cluster.
-
-That argument is a pullspec, not a URL: the `oci://` scheme is added around
-it in the `ENV`. Keep it that way and keep it digest-pinned, or
-digest-rewriting automation will no longer recognise the line and it will
-silently go stale.
-
-The precedence upstream defines is unchanged - per-Engine
-`spec.driver.wasm.image`, then `--default-wasm-image`, then
-`CORAZA_DEFAULT_WASM_IMAGE`, then the compiled-in default - so a cluster
-admin can still override it. The bundle passes the flag explicitly, so in an
-OLM install the CSV wins; the baked value is what the image resolves to on
-its own.
-
-### Regenerating the bundle
-
-Not part of the pipeline. Run it when the bundle changes structurally - a new
-version, a new related image, changed annotations, or an upstream chart
-change - then review and commit the result.
-
-```bash
-make bundle.generate \
-    VERSION=0.7.0 \
-    CHANNEL=dev-preview \
-    OPERATOR_IMAGE=<registry>/<repo>@sha256:... \
-    WASM_IMAGE=<registry>/<repo>@sha256:...
-```
-
-or call `./hack/generate-bundle.sh` directly with the equivalent flags.
-
-The script wraps the upstream generator unmodified and overlays the product
-additions from `hack/bundle-overlay.yaml`. It refuses pullspecs that are not
-digest-pinned, and cross-checks that the OLM labels in
-`images/bundle/Containerfile` still agree with the generated
-`metadata/annotations.yaml`.
-
-## Status
-
-| Artifact | State |
-|---|---|
-| `images/operator` | builds; empty `url`, `version` |
-| `images/bundle` | builds; **generated with placeholder digests, do not ship** |
-| `images/catalog` | not started |
-| `.tekton/` | not started |
-
-## Outstanding
-
-- [ ] FBC Containerfiles, one per supported OCP version. Upstream's
-      `catalog/Dockerfile` cannot be reused: it runs `opm render` against a
-      registry during the build, which a network-isolated build forbids.
-      Fragments must be pre-rendered and committed. The parent image selects
-      the OCP target and must be referenced **by tag** - digest-pinning it
-      fails the build.
-- [ ] Rename the catalog channel from `alpha` and add the bundle entry. The
-      upstream channel is currently empty (`entries: []`), and pre-release
-      channels must be named `*-candidate-*`, `*-dev-preview-*` or
-      `*-pre-ga-*`.
-- [x] `.tekton/` pipeline definitions, with path-based trigger filters so the
-      components do not trigger each other in a rebuild loop.
-- [ ] Wire the version build args. Both images currently label
-      `version=unknown`.
-- [x] Enable network-isolated builds and dependency prefetching, on both
-      images.
-      The Go module paths are inside the submodule, so the prefetch input
-      names the submodule directory.
-- [ ] Regenerate `images/bundle/` against real digests before any release.
-- [ ] Verify each `features.operators.openshift.io/*` value in
-      `hack/bundle-overlay.yaml`. They are placeholders and are shown to
-      users as OperatorHub filters.
-- [ ] Set `--replaces` for the upgrade graph, needed from 0.8 onward.
-- [ ] Multi-arch build platforms for the operator.
-- [ ] Fill in the `url` label once the product value is known. It is
-      deliberately empty today - see below. `cpe` is set.
+Each component has a pull-request and a push `PipelineRun`, both referencing
+one of two shared `Pipeline` definitions under `.tekton/pipelines/` via the
+Tekton git resolver, rather than embedding a `pipelineSpec` - this keeps the
+pull-request and push variants (which differ only in trigger and output tag)
+from drifting apart. The two shared pipelines match Konflux's multi-arch and
+single-arch build templates, used respectively by the operator (architecture-
+specific binary) and the bundle (`FROM scratch`, not architecture-specific).
 
 ## Gotchas
 
