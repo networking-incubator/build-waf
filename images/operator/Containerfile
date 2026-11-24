@@ -18,8 +18,10 @@
 ## Base Images ##
 # ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/hi/rust:1.100.0-1795441658@sha256:4e14f4e5a7e6fa8a75b1495dfd9d63776e90af780fd7078a67b03aca9e1225b7
 ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/ubi9/ubi:9.9-1795197514@sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd
-ARG IMAGE_GO_TOOLSET=registry.access.redhat.com/hi/go:1.27.4-1795439608@sha256:3478446bef41fac36ab887de69fa47771b8409eb6c2b107b085e362d510607c5
-ARG IMAGE_BASE=registry.access.redhat.com/hi/core-runtime:2.43-1795288608@sha256:33539044661f70521596967ee6581b12cc49c30c9f93bf5c52b622d2e9aa8b01
+ARG IMAGE_GO_TOOLSET=registry.access.redhat.com/ubi9/go-toolset:1.27.3-1795320499@sha256:23c7cb17e9c53a65f9ab01f2edf1a4e07c9a9dc2258ed63d69e06925e7cea381
+#registry.access.redhat.com/hi/go:1.27.4-1795439608@sha256:3478446bef41fac36ab887de69fa47771b8409eb6c2b107b085e362d510607c5
+ARG IMAGE_BASE=registry.access.redhat.com/ubi9/ubi:9.9-1795197514@sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd
+# registry.access.redhat.com/hi/core-runtime:2.43-1795288608@sha256:33539044661f70521596967ee6581b12cc49c30c9f93bf5c52b622d2e9aa8b01
 # ~~~~~~~~~~~~ ##
 
 
