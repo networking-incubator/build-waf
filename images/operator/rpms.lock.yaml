@@ -1717,6 +1717,13 @@ arches:
     name: pkgconf-pkg-config
     evr: 1.7.3-10.el9
     sourcerpm: pkgconf-1.7.3-10.el9.src.rpm
+  - url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-741.27.1.el9_9.x86_64.rpm
+    repoid: rhel-9-for-x86_64-appstream-rpms
+    size: 2795353
+    checksum: sha256:df05dc91020e0f226a05f9a73ed2530eeabf7e25fff36cee544787f126aaf535
+    name: kernel-headers
+    evr: 5.14.0-741.27.1.el9_9
+    sourcerpm: kernel-5.14.0-741.27.1.el9_9.src.rpm
   - url: https://cdn.redhat.com/content/dist/rhel9/9/x86_64/appstream/os/Packages/r/rust-std-static-wasm32-wasip1-1.97.1-4.el9_9.noarch.rpm
     repoid: rhel-9-for-x86_64-appstream-rpms
     size: 32287143
