@@ -16,7 +16,8 @@
 # requires go 1.26.2.
 
 ## Base Images ##
-ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/hi/rust:1.100.0-1795441658@sha256:4e14f4e5a7e6fa8a75b1495dfd9d63776e90af780fd7078a67b03aca9e1225b7
+# ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/hi/rust:1.100.0-1795441658@sha256:4e14f4e5a7e6fa8a75b1495dfd9d63776e90af780fd7078a67b03aca9e1225b7
+ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/ubi9/ubi:9.9-1795197514@sha256:6636b79fba9e5044360366f189333c30b5ce528efd92c40c68b074592b971fcd
 ARG IMAGE_GO_TOOLSET=registry.access.redhat.com/hi/go:1.27.4-1795439608@sha256:3478446bef41fac36ab887de69fa47771b8409eb6c2b107b085e362d510607c5
 ARG IMAGE_BASE=registry.access.redhat.com/hi/core-runtime:2.43-1795288608@sha256:33539044661f70521596967ee6581b12cc49c30c9f93bf5c52b622d2e9aa8b01
 # ~~~~~~~~~~~~ ##
@@ -81,10 +82,10 @@ ARG TARGET=wasm32-wasip1
 #
 # rpm --verify after install catches a package that unpacked incorrectly
 # before the failure can surface as a confusing compiler error.
-# RUN PKGS="rust-toolset rust-std-static-${TARGET} gcc git" \
-#     && dnf install --nodocs --nobest --assumeyes $PKGS \
-#     && rpm --verify --nogroup --nouser $PKGS \
-#     && dnf -y clean all
+RUN PKGS="rust-toolset rust-std-static-${TARGET} gcc git" \
+    && dnf install --nodocs --nobest --assumeyes $PKGS \
+    && rpm --verify --nogroup --nouser $PKGS \
+    && dnf -y clean all
 
 # Record the toolchain in the build log. coraza-rs ships a rust-toolchain.toml
 # pinning channel 1.99.1, but that file is a rustup directive and there is no
@@ -106,6 +107,10 @@ WORKDIR /usr/src/coraza-rs
 # be sent as build context, so it is excluded in the repository-root
 # .containerignore.
 COPY coraza-rs/ .
+
+## TODO: resolve rust version and dependecies
+## TEMPORARY DOWNGRADE
+RUN sed -i /^rust-version/s/1\.99/1\.97/ Cargo.toml envoy-coraza/Cargo.toml envoy-libperfusion/Cargo.toml
 
 # Optional cargo features. Empty on purpose: the embedded module does not
 # carry CoreRuleSet, matching the upstream coraza-rs release artifact. Rules
