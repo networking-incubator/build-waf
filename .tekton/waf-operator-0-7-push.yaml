@@ -55,20 +55,29 @@ spec:
   # wasm module, and the RPMs the Rust toolchain needs. Paths are relative to
   # the repository root.
   #
-  #   gomod   coraza-kubernetes-operator   reads go.mod
+  #   gomod   images/operator/go-mod-pin   reads go.mod
   #   rpm     images/operator              reads rpms.lock.yaml
   #   cargo   coraza-rs                    reads Cargo.lock
   #
   # Each prefetch input sits beside the thing it describes: the RPM lockfile
-  # next to the Containerfile that installs those packages, Cargo.lock and
-  # go.mod at the roots of their source submodules.
+  # next to the Containerfile that installs those packages, Cargo.lock at the
+  # root of its source submodule.
+  #
+  # gomod points at images/operator/go-mod-pin, not at the
+  # coraza-kubernetes-operator submodule, because prefetch runs
+  # network-isolated and reads go.mod directly from the repository, before
+  # the Containerfile runs. The submodule's go.mod is one Go patch version
+  # ahead of what IMAGE_GO_TOOLSET ships, which would make this step try to
+  # download a toolchain with no network and fail. images/operator/go-mod-pin
+  # is a downstream copy with that one line downgraded - see its go.mod for
+  # why and how to keep it in sync.
   #
   # images/operator/rpms.lock.yaml is a copy of images/coraza-wasm's, because
   # the wasm-builder stage here installs the same package set from the same
   # base image. Nothing enforces that they stay identical - see the header of
   # images/operator/rpms.in.yaml for what to do when either changes.
   - name: prefetch-input
-    value: '[{"type": "gomod", "path": "coraza-kubernetes-operator"}, {"type": "rpm", "path": "images/operator"}, {"type": "cargo", "path": "coraza-rs"}]'
+    value: '[{"type": "gomod", "path": "images/operator/go-mod-pin"}, {"type": "rpm", "path": "images/operator"}, {"type": "cargo", "path": "coraza-rs"}]'
   # Produces the source container the release policy requires.
   - name: build-source-image
     value: "true"
