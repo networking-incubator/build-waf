@@ -122,7 +122,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: Security
-    containerImage: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:635ef3e530eb60b74a41336887b10b6688c91659e19aebd1f52fdf7a8bfd81bd
+    containerImage: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:6cefca9882f21c6ccf625c9e9b4e8f6b469e236e696e6ebcf6258815711b33e4
     repository: https://github.com/networking-incubator/coraza-kubernetes-operator
     support: Red Hat
     operators.openshift.io/valid-subscription: '["Red Hat Web Application Firewall"]'
@@ -339,7 +339,7 @@ spec:
                 enableServiceLinks: false
                 containers:
                   - name: manager
-                    image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:635ef3e530eb60b74a41336887b10b6688c91659e19aebd1f52fdf7a8bfd81bd
+                    image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:6cefca9882f21c6ccf625c9e9b4e8f6b469e236e696e6ebcf6258815711b33e4
                     imagePullPolicy: IfNotPresent
                     command:
                       - /manager
@@ -482,4 +482,4 @@ spec:
   minKubeVersion: 1.32.0
   relatedImages:
     - name: waf-operator
-      image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:635ef3e530eb60b74a41336887b10b6688c91659e19aebd1f52fdf7a8bfd81bd
+      image: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator@sha256:6cefca9882f21c6ccf625c9e9b4e8f6b469e236e696e6ebcf6258815711b33e4
