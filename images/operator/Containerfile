@@ -12,8 +12,9 @@
 #
 # Unlike the wasm plugin (see tools/tinygo-builder), this is an ordinary Go
 # binary, so Red Hat's FIPS-enabled go-toolset is both usable and preferred.
-# go-toolset:1.26 provides Go 1.26.7; coraza-kubernetes-operator/go.mod
-# requires go 1.26.2.
+# go-toolset:9.9 provides Go 1.27.3; coraza-kubernetes-operator/go.mod
+# declares go 1.27.4. See images/operator/go-mod-pin for the downstream
+# go.mod that downgrades this for the build, and why.
 
 ## Base Images ##
 # ARG IMAGE_WASM_BUILDER=registry.access.redhat.com/hi/rust:1.100.0-1795441658@sha256:4e14f4e5a7e6fa8a75b1495dfd9d63776e90af780fd7078a67b03aca9e1225b7
@@ -189,12 +190,14 @@ WORKDIR /opt/app-root/src
 
 # Resolve dependencies first so the layer caches independently of source edits.
 #
-# NOTE: once network-isolated builds are enabled this must be satisfied
-# entirely from the prefetched dependency cache. Confirm whether the build
-# system exposes that cache automatically or whether its environment file has
-# to be sourced here first.
-COPY --chown=1001:0 coraza-kubernetes-operator/go.mod go.mod
-COPY --chown=1001:0 coraza-kubernetes-operator/go.sum go.sum
+# go.mod comes from images/operator/go-mod-pin, not from the submodule: see
+# that file for why (IMAGE_GO_TOOLSET ships one Go patch version behind what
+# the submodule declares, and the gomod prefetch step - which reads go.mod
+# directly from the repository, network-isolated, before this Containerfile
+# runs - needs to see the same downgraded version it prefetched against, or
+# this download step would try to fetch a toolchain with no network).
+COPY --chown=1001:0 images/operator/go-mod-pin/go.mod go.mod
+COPY --chown=1001:0 images/operator/go-mod-pin/go.sum go.sum
 RUN go mod download
 
 # Copy the whole module, matching the upstream Dockerfile. Copying selected
@@ -210,6 +213,11 @@ RUN go mod download
 # Group 0 with the base image's group permissions is the OpenShift
 # convention and keeps the tree writable whatever UID the builder runs as.
 COPY --chown=1001:0 coraza-kubernetes-operator/ .
+
+# The COPY above reintroduces the submodule's own go.mod, undoing the pinned
+# copy staged earlier. Re-apply it so the build sees the same go directive
+# the gomod prefetch step resolved against; see images/operator/go-mod-pin.
+COPY --chown=1001:0 images/operator/go-mod-pin/go.mod go.mod
 
 # Replace the committed dev fixture in internal/assets with the real module
 # before the Go build embeds it. Must come after the COPY above, which would

@@ -46,11 +46,11 @@ spec:
     value: "true"
   # Must match the push pipeline. See the comment there.
   #
-  #   gomod   coraza-kubernetes-operator   reads go.mod
+  #   gomod   images/operator/go-mod-pin   reads go.mod
   #   rpm     images/operator              reads rpms.lock.yaml
   #   cargo   coraza-rs                    reads Cargo.lock
   - name: prefetch-input
-    value: '[{"type": "gomod", "path": "coraza-kubernetes-operator"}, {"type": "rpm", "path": "images/operator"}, {"type": "cargo", "path": "coraza-rs"}]'
+    value: '[{"type": "gomod", "path": "images/operator/go-mod-pin"}, {"type": "rpm", "path": "images/operator"}, {"type": "cargo", "path": "coraza-rs"}]'
   - name: build-source-image
     value: "true"
   pipelineRef:
