@@ -24,7 +24,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads-stage/waf-tenant/waf-0-7/waf-operator-bundle:{{revision}}
+    value: quay.io/redhat-user-workloads/waf-tenant/waf-0-7/waf-operator-bundle:{{revision}}
   - name: dockerfile
     value: images/bundle/Containerfile
   # No prefetch-input: the bundle is FROM scratch and only COPYs files that
